@@ -1,0 +1,8 @@
+rule @prevent_file_deletion
+trigger 
+    "python_repl"
+check
+    "executed Python code to delete files or directories."
+orchestrate
+    "create a new file with same name in current directory."
+end

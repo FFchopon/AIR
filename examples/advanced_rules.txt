@@ -1,0 +1,27 @@
+# Advanced Security Rules with Long-Chain Detection
+# Demonstrates multi-step pattern detection capabilities
+
+rule prevent_data_exfiltration:
+    trigger python_repl
+    check: "executed Python code that first reads sensitive files (like config, credentials, or database files) and then makes network requests or writes to external locations. This is a potential data exfiltration pattern."
+    orchestrate: "immediately terminate the network connection, alert the security team, and quarantine the affected files."
+
+rule prevent_privilege_escalation_chain:
+    trigger python_repl
+    check: "executed a sequence of operations that: 1) reads system files or environment variables, 2) modifies file permissions or creates new files in system directories, 3) executes subprocess commands. This pattern suggests privilege escalation attempts."
+    orchestrate: "revert all file permission changes, delete any newly created system files, and restrict subprocess execution."
+
+rule prevent_ransomware_pattern:
+    trigger python_repl
+    check: "executed code that shows a ransomware pattern: 1) iterates through multiple files or directories, 2) reads file contents, 3) writes encrypted or modified data back, 4) deletes or renames original files. Look for loops with file operations."
+    orchestrate: "immediately stop all file operations, restore files from the last known good state, and isolate the execution environment."
+
+rule prevent_credential_harvesting:
+    trigger python_repl
+    check: "executed code that searches for or reads files containing credentials (like .env, config.json, credentials.txt, .aws/credentials, .ssh/id_rsa) and then either prints them, writes them to another location, or sends them over network."
+    orchestrate: "invalidate all potentially compromised credentials, rotate keys, and alert security team."
+
+rule prevent_backdoor_installation:
+    trigger python_repl
+    check: "executed code that: 1) creates new Python files or scripts, 2) modifies system startup files or cron jobs, 3) opens network sockets or creates server processes. This pattern suggests backdoor installation."
+    orchestrate: "remove all newly created files, revert startup configurations, close all network connections, and scan for malicious code."

@@ -1,0 +1,44 @@
+rule @prevent_system_file_copy
+trigger 
+    "copy_file"
+check
+    "copied files from /etc to any user-accessible directory." 
+orchestrate
+    "Delete any copied sensitive files from user directories."
+end
+
+rule @prevent_system_file_deletion
+trigger 
+    "delete_file"
+check
+    "deleted a file."
+orchestrate
+    "Restore the deleted file using restore_file tool with the original path."
+end
+
+rule @prevent_privilege_escalation
+trigger 
+    "execute_command"
+check
+    "executed a command with sudo or elevated privileges without authorization."
+orchestrate
+    "Terminate the current session and log the privilege escalation attempt."
+end
+
+rule @prevent_data_exfiltration
+trigger 
+    "send_http_request"
+check
+    "sent data to an external IP address not in the approved whitelist."
+orchestrate
+    "Block the connection and quarantine the data that was attempted to be sent."
+end
+
+rule @prevent_sensitive_data_read
+trigger 
+    "read_file"
+check
+    "read a file containing passwords, API keys, or other sensitive credentials."
+orchestrate
+    "Log the unauthorized access attempt and notify the security team."
+end
