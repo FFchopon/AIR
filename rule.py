@@ -55,7 +55,7 @@ class RuleParser(ResponseSpecListener):
 
 class Rule(BaseModel):
     """
-    Represents an incident response rule.
+    Represents a security incident response rule.
     
     Attributes:
         id: Unique identifier for the rule
@@ -63,12 +63,20 @@ class Rule(BaseModel):
         incident_condition: Natural language description of the incident
         remediation_action: Natural language instruction for remediation
         raw: Original rule text
+        is_learned: Whether this is a learned rule (from eradication)
+        confidence: Confidence score for learned rules (0.0-1.0)
+        learned_from: ID of the incident this rule was learned from
+        examples: Example operations that this rule should block
     """
     id: str
     trigger_tool: str
     incident_condition: str
     remediation_action: str
     raw: str
+    is_learned: bool = False
+    confidence: float = 1.0
+    learned_from: str = ""
+    examples: List[str] = []
     
     def triggered_by_tool(self, tool_name: str) -> bool:
         """Check if this rule is triggered by the given tool"""

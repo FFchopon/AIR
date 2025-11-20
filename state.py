@@ -5,6 +5,9 @@ Tracks conversation history, triggered rules, and incident status.
 
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
+from datetime import datetime
+import json
+import os
 from rule import Rule
 
 
@@ -26,6 +29,10 @@ class IncidentState:
     """
     # Rule configuration
     all_rules: List[Rule] = field(default_factory=list)
+    
+    # ⭐ Eradication: Learned rules from past incidents
+    learned_rules: List[Rule] = field(default_factory=list)
+    learned_rules_db_path: str = "learned_rules.json"
     
     # Conversation tracking
     tool_call_history: List[ToolCall] = field(default_factory=list)
@@ -52,6 +59,9 @@ class IncidentState:
     remediation_in_progress: bool = False
     remediation_completed: bool = False
     remediation_steps_completed: List[str] = field(default_factory=list)
+    
+    # ⭐ Eradication: Pending eradication details (to be executed after remediation)
+    pending_eradication: Optional[Dict[str, Any]] = None
     
     # Detection state
     detection_done_for_current_turn: bool = False
@@ -162,6 +172,71 @@ class IncidentState:
             }
             for call in recent
         ]
+    
+    # ========================================
+    # ⭐ Eradication: Learned Rules Management
+    # ========================================
+    
+    def load_learned_rules(self):
+        """Load learned rules from persistent storage"""
+        if os.path.exists(self.learned_rules_db_path):
+            try:
+                with open(self.learned_rules_db_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    for rule_data in data:
+                        rule = Rule(
+                            id=rule_data['id'],
+                            trigger_tool=rule_data['trigger_tool'],
+                            incident_condition=rule_data['incident_condition'],
+                            remediation_action=rule_data['remediation_action'],
+                            raw=rule_data.get('raw', ''),
+                            is_learned=True,
+                            confidence=rule_data.get('confidence', 1.0),
+                            learned_from=rule_data.get('learned_from', ''),
+                            examples=rule_data.get('examples', [])
+                        )
+                        self.learned_rules.append(rule)
+                print(f"[Eradication] Loaded {len(self.learned_rules)} learned rules from {self.learned_rules_db_path}")
+            except Exception as e:
+                print(f"[Eradication] Error loading learned rules: {e}")
+        else:
+            print(f"[Eradication] No learned rules file found at {self.learned_rules_db_path}")
+    
+    def save_learned_rule(self, rule: Rule):
+        """Save a single learned rule to persistent storage"""
+        # Read existing rules
+        rules_data = []
+        if os.path.exists(self.learned_rules_db_path):
+            with open(self.learned_rules_db_path, 'r', encoding='utf-8') as f:
+                rules_data = json.load(f)
+        
+        # Add new rule
+        rules_data.append({
+            'id': rule.id,
+            'trigger_tool': rule.trigger_tool,
+            'incident_condition': rule.incident_condition,
+            'remediation_action': rule.remediation_action,
+            'raw': rule.raw,
+            'confidence': rule.confidence,
+            'learned_from': rule.learned_from,
+            'examples': rule.examples,
+            'created_at': datetime.now().isoformat()
+        })
+        
+        # Save
+        with open(self.learned_rules_db_path, 'w', encoding='utf-8') as f:
+            json.dump(rules_data, f, indent=2, ensure_ascii=False)
+        
+        print(f"[Eradication] Saved learned rule: {rule.id}")
+    
+    def add_learned_rule(self, rule: Rule):
+        """Add a learned rule to the state and save it"""
+        self.learned_rules.append(rule)
+        self.save_learned_rule(rule)
+    
+    def get_learned_rules_for_tool(self, tool_name: str) -> List[Rule]:
+        """Get all learned rules for a specific tool"""
+        return [r for r in self.learned_rules if r.trigger_tool == tool_name]
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert state to dictionary for serialization"""

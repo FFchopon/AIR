@@ -145,6 +145,11 @@ async def check_for_incidents(
         )
         
         if triggered_rule:
+            print(f"[check_for_incidents] INCIDENT DETECTED: {incident_details['rule_id']}")
+            
+            # Check BEFORE setting incident state
+            should_eradicate = not state.incident_detected
+            
             # Set incident state
             state.set_incident(
                 rule_id=incident_details["rule_id"],
@@ -153,7 +158,28 @@ async def check_for_incidents(
                 severity=incident_details.get("severity", "medium")
             )
             
-            print(f"[check_for_incidents] INCIDENT DETECTED: {incident_details['rule_id']}")
+            # ⭐⭐⭐ ERADICATION: Prepare for learning (execute AFTER remediation) ⭐⭐⭐
+            if should_eradicate:
+                print(f"\n[check_for_incidents] Preparing ERADICATION (will execute after remediation)...")
+                
+                # Prepare incident details for eradication
+                eradication_details = {
+                    'rule_id': incident_details['rule_id'],
+                    'original_condition': triggered_rule.incident_condition,
+                    'tool_call': {
+                        'tool': recent_history[-1]['tool'] if recent_history else 'unknown',
+                        'arguments': recent_history[-1]['arguments'] if recent_history else {},
+                        'result': recent_history[-1]['result'] if recent_history else ''
+                    },
+                    'description': incident_details['description'],
+                    'recent_history': recent_history
+                }
+                
+                # ⭐ Store for later execution (after remediation completes)
+                state.pending_eradication = eradication_details
+                print(f"[check_for_incidents] Eradication scheduled for after remediation")
+            else:
+                print(f"[check_for_incidents] Skipping eradication (already in incident response mode)")
             
             return f"""
 🚨 SECURITY INCIDENT DETECTED 🚨
@@ -164,6 +190,8 @@ Description: {incident_details['description']}
 
 You are now in INCIDENT RESPONSE MODE.
 Your next actions will be guided by the remediation protocol.
+
+🎓 Note: A safety analysis will be performed after remediation to prevent future incidents.
 """
         else:
             print(f"[check_for_incidents] ERROR: Rule {incident_details['rule_id']} not found in triggered rules")
@@ -202,6 +230,45 @@ async def mark_remediation_complete(
     
     print(f"[mark_remediation_complete] Incident {completed_incident['rule_id']} remediated")
     
+    # ⭐⭐⭐ ERADICATION: Execute learning AFTER remediation ⭐⭐⭐
+    eradicate_message = ""
+    
+    if state.pending_eradication:
+        print(f"\n[mark_remediation_complete] Starting ERADICATION phase...")
+        
+        try:
+            from eradication import eradicate_incident
+            
+            # Execute the pending eradication
+            learned_rule = await eradicate_incident(state.pending_eradication, state)
+            
+            eradicate_message = f"""
+
+╔══════════════════════════════════════════════════════════════╗
+║  🎓 ERADICATION: NEW SAFETY RULE LEARNED                     ║
+╚══════════════════════════════════════════════════════════════╝
+
+A new prevention rule has been automatically generated from this incident:
+
+Rule ID: {learned_rule.id}
+Pattern: {learned_rule.incident_condition}
+Confidence: {learned_rule.confidence:.0%}
+
+This rule will BLOCK similar operations BEFORE execution in future runs.
+The incident will not happen again.
+"""
+            
+            # Clear pending eradication
+            state.pending_eradication = None
+            print(f"[mark_remediation_complete] Eradication completed successfully")
+            
+        except Exception as e:
+            print(f"[mark_remediation_complete] ERROR during eradication: {e}")
+            eradicate_message = f"\n⚠️ Eradication failed: {e}"
+            state.pending_eradication = None
+    else:
+        print(f"[mark_remediation_complete] No pending eradication")
+    
     # Clear incident state
     state.clear_incident()
     
@@ -213,6 +280,7 @@ Incident: {completed_incident['rule_id']} (Severity: {completed_incident['severi
 
 The system has returned to normal operation mode.
 You may now continue with other tasks.
+{eradicate_message}
 """
 
 

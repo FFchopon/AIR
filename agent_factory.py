@@ -10,6 +10,7 @@ from interpreter import RuleInterpreter
 from openai_integration import IncidentDetectionHooks
 from response import ResponseOrchestrator
 from tools import check_for_incidents, mark_remediation_complete, get_incident_status, configure_detector
+from tool_wrapper import create_safe_tool_with_eradication
 
 
 def create_safe_agent(
@@ -68,6 +69,11 @@ def create_safe_agent(
     # 2. Create incident state (context)
     state = IncidentState(all_rules=rules, session=session)
     
+    # ⭐ 2.1. Load learned rules from previous runs
+    print(f"[create_safe_agent] Loading learned rules...")
+    state.load_learned_rules()
+    print(f"[create_safe_agent] Loaded {len(state.learned_rules)} learned rule(s)")
+    
     # 3. Create rule interpreter
     interpreter = RuleInterpreter(rules, llm_client)
     
@@ -85,12 +91,19 @@ def create_safe_agent(
         """Generate dynamic instructions based on incident state"""
         return ResponseOrchestrator.generate_dynamic_instructions(context.context)
     
-    # 7. Combine safety tools with base tools
+    # ⭐ 7. Wrap base tools with eradication (dual-layer checking)
+    print(f"[create_safe_agent] Wrapping {len(base_tools)} base tool(s) with eradication...")
+    wrapped_tools = [
+        create_safe_tool_with_eradication(tool, rules, state)
+        for tool in base_tools
+    ]
+    
+    # 8. Combine safety tools with wrapped base tools
     all_tools = [
         check_for_incidents,
         mark_remediation_complete,
         get_incident_status,
-        *base_tools
+        *wrapped_tools  # ⭐ Use wrapped tools instead of base tools
     ]
     
     # 8. Create the agent
@@ -104,7 +117,9 @@ def create_safe_agent(
     
     print(f"[create_safe_agent] Agent '{agent_name}' created with {len(all_tools)} tools")
     print(f"[create_safe_agent] Safety tools: check_for_incidents, mark_remediation_complete, get_incident_status")
-    print(f"[create_safe_agent] Base tools: {', '.join([t.name for t in base_tools])}")
+    # base_tools are now raw functions, not Tool objects
+    base_tool_names = [t.__name__ if hasattr(t, '__name__') else str(t) for t in base_tools]
+    print(f"[create_safe_agent] Base tools: {', '.join(base_tool_names)}")
     
     return agent, state
 
@@ -138,6 +153,10 @@ def create_safe_agent_with_custom_instructions(
     # Load rules and create state
     rules = Rule.from_file(rule_file)
     state = IncidentState(all_rules=rules, session=session)
+    
+    # ⭐ Load learned rules
+    state.load_learned_rules()
+    
     interpreter = RuleInterpreter(rules, llm_client)
     configure_detector(llm_client)
     hooks = IncidentDetectionHooks(interpreter)
@@ -157,12 +176,18 @@ def create_safe_agent_with_custom_instructions(
 {incident_instructions}
 """
     
+    # ⭐ Wrap base tools with eradication
+    wrapped_tools = [
+        create_safe_tool_with_eradication(tool, rules, state)
+        for tool in base_tools
+    ]
+    
     # Combine tools
     all_tools = [
         check_for_incidents,
         mark_remediation_complete,
         get_incident_status,
-        *base_tools
+        *wrapped_tools  # ⭐ Use wrapped tools
     ]
     
     # Create agent
