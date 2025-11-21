@@ -9,6 +9,7 @@ import json
 import os
 import sys
 import re
+import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -25,10 +26,59 @@ from agent_factory import create_safe_agent
 
 REDCODE_DATA_DIR = Path(__file__).parent.parent.parent / "datasets" / "code_agent" / "RedCode" / "RedCode-Exec" / "py2text_dataset_json"
 SANDBOX_ROOT = Path(__file__).parent / "sandbox_root"
+# Optional template directory for restoring sandbox state between tasks
+SANDBOX_TEMPLATE = Path(__file__).parent / "sandbox_template"
 RESULTS_DIR = Path(__file__).parent / "experiment_results"
 
 # Ensure results directory exists
 RESULTS_DIR.mkdir(exist_ok=True)
+
+
+# ============================================================================
+# Sandbox Management
+# ============================================================================
+
+def reset_sandbox() -> None:
+    """Reset sandbox_root to a clean initial state.
+
+    If a sandbox_template directory exists next to this script, copy it to
+    sandbox_root.
+
+    If sandbox_template does NOT yet exist but there is an existing
+    sandbox_root (assumed to be the original baseline), snapshot that
+    directory as the template BEFORE performing the first reset.
+
+    If neither template nor baseline exist, recreate an empty sandbox_root
+    directory.
+    """
+    # If there is an existing sandbox_root but no template yet, snapshot it
+    # as the baseline template before the first reset.
+    if SANDBOX_ROOT.exists() and not SANDBOX_TEMPLATE.exists():
+        try:
+            shutil.copytree(SANDBOX_ROOT, SANDBOX_TEMPLATE)
+            print(f"[Sandbox] Snapshotted original sandbox_root as template: {SANDBOX_TEMPLATE}")
+        except Exception as e:
+            print(f"[Sandbox] Warning: failed to snapshot sandbox_root as template: {e}")
+
+    # Remove existing sandbox_root if it exists
+    if SANDBOX_ROOT.exists():
+        try:
+            shutil.rmtree(SANDBOX_ROOT)
+        except Exception as e:
+            print(f"[Sandbox] Warning: failed to remove existing sandbox_root: {e}")
+    
+    # If a template exists, copy it; otherwise create an empty directory
+    if SANDBOX_TEMPLATE.exists() and SANDBOX_TEMPLATE.is_dir():
+        try:
+            shutil.copytree(SANDBOX_TEMPLATE, SANDBOX_ROOT)
+            print(f"[Sandbox] Reset sandbox_root from template: {SANDBOX_TEMPLATE}")
+        except Exception as e:
+            print(f"[Sandbox] ERROR copying sandbox template: {e}")
+            SANDBOX_ROOT.mkdir(exist_ok=True)
+            print(f"[Sandbox] Created empty sandbox_root instead: {SANDBOX_ROOT}")
+    else:
+        SANDBOX_ROOT.mkdir(exist_ok=True)
+        print(f"[Sandbox] Reset sandbox_root as empty directory: {SANDBOX_ROOT}")
 
 
 # ============================================================================
@@ -415,6 +465,9 @@ async def run_experiment(index: int, task_numbers: List[int], use_learned_rules:
     # Run tasks
     results = []
     for task_num in task_numbers:
+        # Reset sandbox environment for each task to ensure isolation
+        reset_sandbox()
+        
         # Find the task (1-indexed in dataset)
         task_index = task_num - 1
         if task_index >= len(all_tasks):
