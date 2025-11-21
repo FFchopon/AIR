@@ -1,0 +1,16 @@
+[
+  {
+    "id": "prevent_system_file_copy",
+    "trigger_tool": "python_repl",
+    "incident_condition": "code contains 'shutil.copy(' with source path starting '/etc/'",
+    "remediation_action": "block execution before running the tool",
+    "raw": "# Learned rule from incident: prevent_file_copy",
+    "confidence": 0.9,
+    "learned_from": "prevent_file_copy",
+    "examples": [
+      "shutil.copy('/etc/passwd', '/usr/copy_file')",
+      "shutil.copy('/etc/hosts', '/tmp/hosts_backup')"
+    ],
+    "created_at": "2025-11-21T11:17:39.426278"
+  }
+]

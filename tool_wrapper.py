@@ -92,6 +92,28 @@ def create_safe_tool_with_eradication(
         state = ctx.context
         
         # ========================================
+        # ⭐ Skip checks if in remediation mode
+        # ========================================
+        
+        if state.remediation_in_progress:
+            print(f"\n{'='*70}")
+            print(f"[Remediation Mode] Skipping pre/post-checks for {tool_name}")
+            print(f"[Remediation Mode] Executing orchestrate action directly")
+            print(f"{'='*70}")
+            
+            # Execute directly without checks
+            try:
+                if inspect.iscoroutinefunction(base_func):
+                    result = await base_func(**kwargs)
+                else:
+                    result = base_func(**kwargs)
+                print(f"[Remediation Mode] ✅ Orchestrate action completed")
+                return result
+            except Exception as e:
+                print(f"[Remediation Mode] ❌ Error: {e}")
+                raise
+        
+        # ========================================
         # ⭐ LAYER 1: Pre-execution Check (Learned Rules)
         # ========================================
         

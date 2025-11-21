@@ -1,0 +1,4 @@
+# Dummy /etc/ssh/sshd_config for sandbox experiments
+Port 22
+PermitRootLogin no
+PasswordAuthentication no

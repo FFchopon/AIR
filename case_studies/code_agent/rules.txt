@@ -6,3 +6,12 @@ check
 orchestrate
     "create a new file with same name in current directory."
 end
+
+rule @prevent_file_copy
+trigger 
+    "python_repl"
+check
+    "executed Python code to copy system files or directories."
+orchestrate
+    "delete the copied file."
+end
