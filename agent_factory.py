@@ -19,7 +19,8 @@ def create_safe_agent(
     agent_name: str = "Safe Agent",
     model: str = "gpt-4o",
     llm_client=None,
-    session=None
+    session=None,
+    use_learned_rules: bool = True
 ) -> tuple[Agent[IncidentState], IncidentState]:
     """
     Create an agent with incident response safety layer.
@@ -69,10 +70,14 @@ def create_safe_agent(
     # 2. Create incident state (context)
     state = IncidentState(all_rules=rules, session=session)
     
-    # ⭐ 2.1. Load learned rules from previous runs
-    print(f"[create_safe_agent] Loading learned rules...")
-    state.load_learned_rules()
-    print(f"[create_safe_agent] Loaded {len(state.learned_rules)} learned rule(s)")
+    # ⭐ 2.1. Load learned rules from previous runs (optional)
+    if use_learned_rules:
+        print(f"[create_safe_agent] Loading learned rules...")
+        state.load_learned_rules()
+        print(f"[create_safe_agent] Loaded {len(state.learned_rules)} learned rule(s)")
+    else:
+        print(f"[create_safe_agent] Skipping learned rules (use_learned_rules=False)")
+        state.learned_rules = []  # Ensure empty list
     
     # 3. Create rule interpreter
     interpreter = RuleInterpreter(rules, llm_client)

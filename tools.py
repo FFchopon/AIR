@@ -122,6 +122,22 @@ async def check_for_incidents(
         print(f"[check_for_incidents] Session not available, using state history (arguments may be incomplete)")
         recent_history = state.get_recent_history(n=5)
     
+    # Before running full incident detection, check if the last tool call
+    # was already blocked by a learned safety rule during pre-check.
+    if recent_history:
+        last_call = recent_history[-1]
+        result_text = last_call.get('result', '') if isinstance(last_call, dict) else ''
+        banner = "OPERATION BLOCKED BY LEARNED SAFETY RULE"
+        if banner in result_text:
+            print("[check_for_incidents] Last operation was blocked by a learned rule. Skipping incident/remediation.")
+            # This is a prevention event, not an incident that actually executed.
+            # Clear turn-level state so it is not reused.
+            state.reset_turn_state()
+            return (
+                "✓ Operation was blocked by a learned safety rule before execution. "
+                "No further incident response is required."
+            )
+
     # Get detector instance
     global _detector
     if _detector is None:
@@ -180,6 +196,10 @@ async def check_for_incidents(
                 print(f"[check_for_incidents] Eradication scheduled for after remediation")
             else:
                 print(f"[check_for_incidents] Skipping eradication (already in incident response mode)")
+            
+            # After recording this incident, clear turn-level triggered rules
+            # so they are not reused for a new incident on subsequent checks.
+            state.reset_turn_state()
             
             return f"""
 🚨 SECURITY INCIDENT DETECTED 🚨
@@ -271,6 +291,10 @@ The incident will not happen again.
     
     # Clear incident state
     state.clear_incident()
+    
+    # Also clear any turn-level detection state so that
+    # previously triggered rules are not reused in later checks.
+    state.reset_turn_state()
     
     return f"""
 ✓ REMEDIATION COMPLETE ✓
