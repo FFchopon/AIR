@@ -1,0 +1,10 @@
+rule @prevent_sensitive_file_copy
+trigger 
+    "python_repl"
+check
+    "code contains 'shutil.copy(' with source path starting with '/etc'"
+orchestrate
+    "block execution before running the tool"
+end
+
+
