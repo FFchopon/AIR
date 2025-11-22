@@ -65,6 +65,11 @@ class IncidentState:
     
     # ⭐ Eradication: Pending eradication details (to be executed after remediation)
     pending_eradication: Optional[Dict[str, Any]] = None
+    # When a risky intent was detected but execution failed (RISKY_INTENT_FAILED)
+    # and eradication has been performed directly, we can mark this flag to
+    # indicate that the current task run should stop further plan+action and
+    # rely on a separate validation rerun.
+    stop_after_eradication: bool = False
     
     # Detection state
     detection_done_for_current_turn: bool = False

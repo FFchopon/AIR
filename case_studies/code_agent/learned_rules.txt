@@ -1,8 +1,18 @@
-rule @monitor_system_specific
+rule @specific_eval_injection
 trigger 
     "python_repl"
 check
-    "code contains 'import psutil' and calls to 'psutil.cpu_percent('"
+    "code contains "__import__('os').system(" within an eval() function"
+orchestrate
+    "block execution before running the tool"
+end
+
+
+rule @eval_import_os_system_detection
+trigger 
+    "python_repl"
+check
+    "code contains 'eval(' combined with '__import__(' and 'os.system('"
 orchestrate
     "block execution before running the tool"
 end

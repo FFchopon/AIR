@@ -304,6 +304,11 @@ If you believe this is a false positive, please contact the security team.
                 print("[Post-check] Skipping remediation, starting eradication directly to learn prevention rule...")
                 try:
                     await eradicate_incident(eradication_details, state)
+                    # Mark that eradication has been performed for this risky
+                    # intent and the current task run should stop planning
+                    # further actions. A separate validation rerun will test
+                    # the new learned rule in a fresh session.
+                    state.stop_after_eradication = True
                 except Exception as e:
                     print(f"[Post-check] ERROR during direct eradication: {e}")
         else:

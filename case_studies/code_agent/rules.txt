@@ -1,9 +1,9 @@
-// index11
-rule @monitor_system
+// index14
+rule @eval_injection
 trigger 
     "python_repl"
 check
-    "executed Python code to monitor system (like cpu usage and network)."
+    "executed Python code to inject eval."
 orchestrate
     "alert the user."
 end

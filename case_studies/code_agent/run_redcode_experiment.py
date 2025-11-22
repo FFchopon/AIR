@@ -58,9 +58,10 @@ def reset_sandbox() -> None:
     if SANDBOX_ROOT.exists() and not SANDBOX_TEMPLATE.exists():
         try:
             shutil.copytree(SANDBOX_ROOT, SANDBOX_TEMPLATE)
-            print(f"[Sandbox] Snapshotted original sandbox_root as template: {SANDBOX_TEMPLATE}")
+            # print(f"[Sandbox] Snapshotted original sandbox_root as template: {SANDBOX_TEMPLATE}")
         except Exception as e:
-            print(f"[Sandbox] Warning: failed to snapshot sandbox_root as template: {e}")
+            # print(f"[Sandbox] Warning: failed to snapshot sandbox_root as template: {e}")
+            pass
 
     # Remove existing sandbox_root if it exists
     if SANDBOX_ROOT.exists():
@@ -73,7 +74,7 @@ def reset_sandbox() -> None:
     if SANDBOX_TEMPLATE.exists() and SANDBOX_TEMPLATE.is_dir():
         try:
             shutil.copytree(SANDBOX_TEMPLATE, SANDBOX_ROOT)
-            print(f"[Sandbox] Reset sandbox_root from template: {SANDBOX_TEMPLATE}")
+            # print(f"[Sandbox] Reset sandbox_root from template: {SANDBOX_TEMPLATE}")
         except Exception as e:
             print(f"[Sandbox] ERROR copying sandbox template: {e}")
             SANDBOX_ROOT.mkdir(exist_ok=True)
@@ -153,14 +154,15 @@ def create_sandbox_aware_python_repl():
         # Rewrite paths to use sandbox
         sandboxed_code = rewrite_code_for_sandbox(code)
         
-        print(f"\n{'='*70}")
-        print(f"[Sandbox] Original code paths rewritten to sandbox")
-        print(f"{'='*70}")
+        # print(f"\n{'='*70}")
+        # print(f"[Sandbox] Original code paths rewritten to sandbox")
+        # print(f"{'='*70}")
         if sandboxed_code != code:
-            print(f"[Sandbox] Path rewriting applied")
+            # print(f"[Sandbox] Path rewriting applied")
+            pass
         
-        print(f"[python_repl] Executing code:")
-        print(sandboxed_code)
+        # print(f"[python_repl] Executing code:")
+        # print(sandboxed_code)
         print()
         
         try:
@@ -399,7 +401,7 @@ async def run_single_task(
     
     print(f"\n[Task] Prompt:")
     print(f"{task_prompt[:200]}..." if len(task_prompt) > 200 else task_prompt)
-    print(f"\n[Task] Expected: {expected_result}")
+    # print(f"\n[Task] Expected: {expected_result}")
     
     # Create agent with sandbox-aware python_repl
     python_repl = create_sandbox_aware_python_repl()
@@ -431,14 +433,14 @@ async def run_single_task(
         total_learned_rules_count = len(state.learned_rules)
         new_learned_rules_count = max(0, total_learned_rules_count - initial_learned_rules_count)
         
-        print(f"\n[Result] Incident detected: {incident_detected}")
-        print(f"[Result] Learned rules (total): {total_learned_rules_count} (new this task: {new_learned_rules_count})")
-        print(f"[Result] Output: {final_output[:200]}..." if len(final_output) > 200 else f"[Result] Output: {final_output}")
+        # print(f"\n[Result] Incident detected: {incident_detected}")
+        # print(f"[Result] Learned rules (total): {total_learned_rules_count} (new this task: {new_learned_rules_count})")
+        # print(f"[Result] Output: {final_output[:200]}..." if len(final_output) > 200 else f"[Result] Output: {final_output}")
         
         # ⭐ Analyze task result
-        print(f"\n{'='*80}")
-        print("ANALYZING TASK RESULT...")
-        print("="*80)
+        # print(f"\n{'='*80}")
+        # print("ANALYZING TASK RESULT...")
+        # print("="*80)
         analysis = await analyze_task_result(state, session, task_prompt, original_code)
         
         print(f"\n[Analysis] Risky Task Executed: {analysis['risky_task_executed']}")
@@ -598,7 +600,7 @@ async def run_experiment(index: int, task_numbers: List[int], use_learned_rules:
         if not is_last_task and learned_rules_path.exists():
             try:
                 learned_rules_path.write_text("", encoding="utf-8")
-                print(f"[Eradication] Cleared learned_rules file before next task: {learned_rules_path}")
+                # print(f"[Eradication] Cleared learned_rules file before next task: {learned_rules_path}")
             except Exception as e:
                 print(f"[Eradication] Warning: failed to clear learned_rules file: {e}")
         
