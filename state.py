@@ -61,6 +61,7 @@ class IncidentState:
     remediation_in_progress: bool = False
     remediation_completed: bool = False
     remediation_steps_completed: List[str] = field(default_factory=list)
+    incident_history_length_at_detection: int = 0
     
     # ⭐ Eradication: Pending eradication details (to be executed after remediation)
     pending_eradication: Optional[Dict[str, Any]] = None
@@ -101,6 +102,7 @@ class IncidentState:
         self.remediation_action = remediation
         self.severity = severity
         self.remediation_in_progress = True
+        self.incident_history_length_at_detection = len(self.tool_call_history)
     
     def clear_incident(self):
         """Clear incident state after remediation"""
@@ -111,6 +113,7 @@ class IncidentState:
         self.remediation_in_progress = False
         self.remediation_completed = False
         self.remediation_steps_completed = []
+        self.incident_history_length_at_detection = 0
     
     def reset_turn_state(self):
         """Reset state for a new turn"""

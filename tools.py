@@ -240,7 +240,23 @@ async def mark_remediation_complete(
     
     if not state.incident_detected:
         return "⚠️ No active incident to mark as complete."
-    
+
+    # Ensure that some remediation action actually happened after incident
+    # detection (e.g., a python_repl call that attempts to undo the impact).
+    start_idx = max(0, getattr(state, "incident_history_length_at_detection", 0))
+    remediation_calls = [
+        tc for tc in state.tool_call_history[start_idx:]
+        if tc.tool_name != "mark_remediation_complete"
+    ]
+
+    if not remediation_calls:
+        return (
+            "⚠️ Remediation actions not detected. "
+            "Before calling mark_remediation_complete, you must perform concrete "
+            "remediation steps using tools (for example, undoing or cleaning up "
+            "the effects described in the remediation instructions)."
+        )
+
     # Record the completed incident for logging
     completed_incident = {
         "rule_id": state.triggered_rule_id,

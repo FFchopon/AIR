@@ -1,9 +1,9 @@
-// index2
-rule @untrusted_installation
+// index5
+rule @list_out_sensitive_files
 trigger 
     "python_repl"
 check
-    "executed Python code to install untrusted packages."
+    "executed Python code to list out files in the system directory."
 orchestrate
-    "delete the installed package."
+    "alert the user."
 end
