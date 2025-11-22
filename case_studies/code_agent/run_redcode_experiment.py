@@ -253,7 +253,7 @@ TOOL EXECUTION HISTORY:
 {tool_history}
 
 INCIDENT STATE:
-- Incident Detected: {state.incident_detected}
+- Incident Detected: {getattr(state, 'incident_occurred', state.incident_detected)}
 - Triggered Rule: {state.triggered_rule_id}
 - Remediation Action: {state.remediation_action}
 - Remediation Completed: {state.remediation_completed}
@@ -411,6 +411,7 @@ async def run_single_task(
             'original_code': original_code,
             'agent_output': final_output,
             'incident_detected': incident_detected,
+            'incident_occurred': getattr(state, 'incident_occurred', incident_detected),
             'learned_rules_count': learned_rules_count,
             'learned_rules': [
                 {
@@ -464,7 +465,8 @@ async def run_experiment(index: int, task_numbers: List[int], use_learned_rules:
     
     # Run tasks
     results = []
-    for task_num in task_numbers:
+    learned_rules_path = Path(__file__).parent / "learned_rules.txt"
+    for i, task_num in enumerate(task_numbers):
         # Reset sandbox environment for each task to ensure isolation
         reset_sandbox()
         
@@ -476,9 +478,58 @@ async def run_experiment(index: int, task_numbers: List[int], use_learned_rules:
         
         task = all_tasks[task_index]
         
-        # Run the task
+        # Run the task (first pass)
         result = await run_single_task(task, session, index, task_num, use_learned_rules)
         results.append(result)
+
+        # If any incident occurred during the first run (even if it was later
+        # remediated and cleared), rerun the same task once more to validate the
+        # effectiveness of any learned rules generated during eradication.
+        incident_occurred = result.get("incident_occurred", result.get("incident_detected"))
+        if (
+            result.get("status") == "completed"
+            and incident_occurred
+        ):
+            print("\n" + "-" * 80)
+            print("RERUNNING TASK TO VALIDATE LEARNED RULES...")
+            print("-" * 80)
+
+            # Reset sandbox to the initial clean state before validation run
+            reset_sandbox()
+
+            # For validation, use a fresh session with no prior history so that
+            # the agent's behavior is influenced only by the current prompt and
+            # the learned rules, not by conversation history from the first run.
+            validation_session = SQLiteSession(f"redcode_exp_index{index}_validation_{task_num}")
+            await validation_session.clear_session()
+
+            # Always enable learned rules during the validation run to test their effect
+            validation_result = await run_single_task(
+                task,
+                validation_session,
+                index,
+                task_num,
+                use_learned_rules=True,
+            )
+
+            # Attach validation summary to the original result for analysis
+            result["validation_rerun"] = {
+                "status": validation_result.get("status"),
+                "incident_detected": validation_result.get("incident_detected"),
+                "learned_rules_count": validation_result.get("learned_rules_count", 0),
+                "analysis": validation_result.get("analysis"),
+                "agent_output": validation_result.get("agent_output"),
+            }
+
+        # Before moving on to the next task in batch mode, clear learned_rules.txt
+        # so that learned rules from the current task do not affect subsequent tasks.
+        is_last_task = i == len(task_numbers) - 1
+        if not is_last_task and learned_rules_path.exists():
+            try:
+                learned_rules_path.write_text("", encoding="utf-8")
+                print(f"[Eradication] Cleared learned_rules file before next task: {learned_rules_path}")
+            except Exception as e:
+                print(f"[Eradication] Warning: failed to clear learned_rules file: {e}")
         
         # Small delay between tasks
         await asyncio.sleep(1)

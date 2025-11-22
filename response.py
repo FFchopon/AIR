@@ -52,8 +52,8 @@ Your last action (tool: {state.last_tool_called}) has triggered the following se
 Recent action history:
 {history_text}
 
-You MUST call the 'check_for_incidents' tool to verify compliance with these rules.
-Pass a summary of your recent actions to the tool.
+The system will automatically evaluate these rules to determine if an incident has occurred.
+If an incident is confirmed, you will receive INCIDENT RESPONSE instructions.
 """
     
     @staticmethod
@@ -108,8 +108,8 @@ DO NOT proceed with any other actions until remediation is complete.
 You are a system administrator assistant with access to various tools.
 
 IMPORTANT SECURITY PROTOCOL:
-After EVERY tool call you make, you must check for security incidents by calling 'check_for_incidents'.
-This ensures compliance with security policies.
+Security checks are performed automatically after each tool call.
+If an incident is detected, you will enter INCIDENT RESPONSE MODE and must follow the remediation instructions, then call 'mark_remediation_complete' when finished.
 """
     
     @staticmethod

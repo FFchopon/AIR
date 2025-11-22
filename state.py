@@ -32,7 +32,8 @@ class IncidentState:
     
     # ⭐ Eradication: Learned rules from past incidents
     learned_rules: List[Rule] = field(default_factory=list)
-    learned_rules_db_path: str = "learned_rules.json"
+    # Store learned rules in ResponseSpec DSL format, similar to rules.txt
+    learned_rules_db_path: str = "learned_rules.txt"
     
     # Conversation tracking
     tool_call_history: List[ToolCall] = field(default_factory=list)
@@ -50,6 +51,7 @@ class IncidentState:
     
     # Incident detection
     incident_detected: bool = False
+    incident_occurred: bool = False
     incident_description: str = ""
     triggered_rule_id: str = ""
     severity: str = ""  # low, medium, high, critical
@@ -93,6 +95,7 @@ class IncidentState:
     ):
         """Mark an incident as detected"""
         self.incident_detected = True
+        self.incident_occurred = True
         self.triggered_rule_id = rule_id
         self.incident_description = description
         self.remediation_action = remediation
@@ -178,56 +181,43 @@ class IncidentState:
     # ========================================
     
     def load_learned_rules(self):
-        """Load learned rules from persistent storage"""
+        """Load learned rules from persistent storage (DSL file)."""
         if os.path.exists(self.learned_rules_db_path):
             try:
-                with open(self.learned_rules_db_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    for rule_data in data:
-                        rule = Rule(
-                            id=rule_data['id'],
-                            trigger_tool=rule_data['trigger_tool'],
-                            incident_condition=rule_data['incident_condition'],
-                            remediation_action=rule_data['remediation_action'],
-                            raw=rule_data.get('raw', ''),
-                            is_learned=True,
-                            confidence=rule_data.get('confidence', 1.0),
-                            learned_from=rule_data.get('learned_from', ''),
-                            examples=rule_data.get('examples', [])
-                        )
-                        self.learned_rules.append(rule)
-                print(f"[Eradication] Loaded {len(self.learned_rules)} learned rules from {self.learned_rules_db_path}")
+                # Reuse the same parser as rules.txt
+                rules = Rule.from_file(self.learned_rules_db_path)
+                # Mark them as learned rules (for logging / UI semantics)
+                for r in rules:
+                    r.is_learned = True
+                self.learned_rules.extend(rules)
+                print(
+                    f"[Eradication] Loaded {len(self.learned_rules)} learned rules "
+                    f"from {self.learned_rules_db_path}"
+                )
             except Exception as e:
-                print(f"[Eradication] Error loading learned rules: {e}")
+                print(f"[Eradication] Error loading learned rules from DSL: {e}")
         else:
             print(f"[Eradication] No learned rules file found at {self.learned_rules_db_path}")
     
     def save_learned_rule(self, rule: Rule):
-        """Save a single learned rule to persistent storage"""
-        # Read existing rules
-        rules_data = []
-        if os.path.exists(self.learned_rules_db_path):
-            with open(self.learned_rules_db_path, 'r', encoding='utf-8') as f:
-                rules_data = json.load(f)
-        
-        # Add new rule
-        rules_data.append({
-            'id': rule.id,
-            'trigger_tool': rule.trigger_tool,
-            'incident_condition': rule.incident_condition,
-            'remediation_action': rule.remediation_action,
-            'raw': rule.raw,
-            'confidence': rule.confidence,
-            'learned_from': rule.learned_from,
-            'examples': rule.examples,
-            'created_at': datetime.now().isoformat()
-        })
-        
-        # Save
-        with open(self.learned_rules_db_path, 'w', encoding='utf-8') as f:
-            json.dump(rules_data, f, indent=2, ensure_ascii=False)
-        
-        print(f"[Eradication] Saved learned rule: {rule.id}")
+        """Save a single learned rule to persistent storage (DSL file)."""
+        # Append a DSL-style rule to learned_rules.txt using rules.txt format.
+        # The file path is learned_rules_db_path.
+        try:
+            with open(self.learned_rules_db_path, 'a', encoding='utf-8') as f_txt:
+                f_txt.write(
+                    f"rule @{rule.id}\n"
+                    f"trigger \n"
+                    f"    \"{rule.trigger_tool}\"\n"
+                    f"check\n"
+                    f"    \"{rule.incident_condition}\"\n"
+                    f"orchestrate\n"
+                    f"    \"{rule.remediation_action}\"\n"
+                    f"end\n\n\n"
+                )
+            print(f"[Eradication] Saved learned rule (DSL): {rule.id}")
+        except Exception as e:
+            print(f"[Eradication] Warning: failed to write {self.learned_rules_db_path} for {rule.id}: {e}")
     
     def add_learned_rule(self, rule: Rule):
         """Add a learned rule to the state and save it"""

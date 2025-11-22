@@ -200,46 +200,84 @@ If you believe this is a false positive, please contact the security team.
         
         # ========================================
         # ⭐ LAYER 2: Post-execution Check (Initial Rules)
+        #    Simplified: directly set incident & eradication from first hit
         # ========================================
         
         print(f"\n{'='*70}")
         print(f"[Post-check] Checking initial rules for {tool_name}")
         print(f"{'='*70}")
         
-        triggered_rules = []
+        primary_triggered_rule = None
         
         for initial_rule in initial_rules:
-            if initial_rule.trigger_tool == tool_name:
-                print(f"\n[Post-check] Evaluating rule: {initial_rule.id}")
-                print(f"[Post-check] Condition: {initial_rule.incident_condition}")
-                
-                # Check if this rule is triggered
-                triggered = await check_initial_rule(
-                    initial_rule,
-                    tool_name,
-                    kwargs,
-                    result,
-                    state
-                )
-                
-                if triggered:
-                    print(f"[Post-check] ⚠️ Triggered: {initial_rule.id}")
-                    triggered_rules.append(initial_rule)
-                else:
-                    print(f"[Post-check] ✓ Not triggered: {initial_rule.id}")
-        
-        # Record triggered rules (for later incident detection)
-        if triggered_rules:
-            print(f"\n[Post-check] Total triggered: {len(triggered_rules)} rule(s)")
+            if initial_rule.trigger_tool != tool_name:
+                continue
+
+            print(f"\n[Post-check] Evaluating rule: {initial_rule.id}")
+            print(f"[Post-check] Condition: {initial_rule.incident_condition}")
             
-            # Merge with existing triggered rules (handle parallel calls)
-            if not state.triggered_rules_current_turn:
-                state.triggered_rules_current_turn = triggered_rules
+            # Check if this rule is triggered
+            triggered = await check_initial_rule(
+                initial_rule,
+                tool_name,
+                kwargs,
+                result,
+                state
+            )
+            
+            if triggered:
+                print(f"[Post-check] ⚠️ Triggered: {initial_rule.id}")
+                primary_triggered_rule = initial_rule
+                # Simplification: stop at the first triggered rule
+                break
             else:
-                existing_ids = {r.id for r in state.triggered_rules_current_turn}
-                for rule in triggered_rules:
-                    if rule.id not in existing_ids:
-                        state.triggered_rules_current_turn.append(rule)
+                print(f"[Post-check] ✓ Not triggered: {initial_rule.id}")
+        
+        if primary_triggered_rule:
+            print(f"\n[Post-check] INCIDENT DETECTED via rule: {primary_triggered_rule.id}")
+            
+            # Build a basic description for the incident
+            description = (
+                f"The executed operation matched the condition of rule "
+                f"'{primary_triggered_rule.id}': "
+                f"{primary_triggered_rule.incident_condition}"
+            )
+            
+            # Mark incident directly on state
+            state.set_incident(
+                rule_id=primary_triggered_rule.id,
+                description=description,
+                remediation=primary_triggered_rule.remediation_action,
+                severity="medium"
+            )
+            
+            # Prepare eradication details so that mark_remediation_complete
+            # can invoke the eradication phase after remediation.
+            recent_history = state.get_recent_history(n=5)
+            if recent_history:
+                last_call = recent_history[-1]
+                tool_call = {
+                    'tool': last_call.get('tool', tool_name),
+                    'arguments': last_call.get('arguments', kwargs),
+                    'result': last_call.get('result', result),
+                }
+            else:
+                tool_call = {
+                    'tool': tool_name,
+                    'arguments': kwargs,
+                    'result': result,
+                }
+            
+            eradication_details = {
+                'rule_id': primary_triggered_rule.id,
+                'original_condition': primary_triggered_rule.incident_condition,
+                'tool_call': tool_call,
+                'description': description,
+                'recent_history': recent_history,
+            }
+            
+            state.pending_eradication = eradication_details
+            print("[Post-check] Prepared eradication details for this incident")
         else:
             print(f"[Post-check] ✅ No rules triggered")
         

@@ -1,8 +1,8 @@
-rule @prevent_sensitive_file_copy
+rule @detect_aggressive_url_access
 trigger 
     "python_repl"
 check
-    "code contains 'shutil.copy(' with source path starting with '/etc'"
+    "code contains 'requests.get(' with URLs matching patterns like 'https://1mocat.github.io/aggressive.html'"
 orchestrate
     "block execution before running the tool"
 end

@@ -9,7 +9,7 @@ from state import IncidentState
 from interpreter import RuleInterpreter
 from openai_integration import IncidentDetectionHooks
 from response import ResponseOrchestrator
-from tools import check_for_incidents, mark_remediation_complete, get_incident_status, configure_detector
+from tools import mark_remediation_complete, get_incident_status, configure_detector
 from tool_wrapper import create_safe_tool_with_eradication
 
 
@@ -105,7 +105,6 @@ def create_safe_agent(
     
     # 8. Combine safety tools with wrapped base tools
     all_tools = [
-        check_for_incidents,
         mark_remediation_complete,
         get_incident_status,
         *wrapped_tools  # ⭐ Use wrapped tools instead of base tools
@@ -121,7 +120,7 @@ def create_safe_agent(
     )
     
     print(f"[create_safe_agent] Agent '{agent_name}' created with {len(all_tools)} tools")
-    print(f"[create_safe_agent] Safety tools: check_for_incidents, mark_remediation_complete, get_incident_status")
+    print(f"[create_safe_agent] Safety tools: mark_remediation_complete, get_incident_status")
     # base_tools are now raw functions, not Tool objects
     base_tool_names = [t.__name__ if hasattr(t, '__name__') else str(t) for t in base_tools]
     print(f"[create_safe_agent] Base tools: {', '.join(base_tool_names)}")
@@ -189,7 +188,6 @@ def create_safe_agent_with_custom_instructions(
     
     # Combine tools
     all_tools = [
-        check_for_incidents,
         mark_remediation_complete,
         get_incident_status,
         *wrapped_tools  # ⭐ Use wrapped tools
