@@ -464,6 +464,12 @@ async def run_single_task(
                 }
                 for rule in state.learned_rules
             ],
+            # Whether this run ended after direct eradication for a
+            # RISKY_INTENT_FAILED outcome (no impact, but risky intent
+            # detected and a learned rule was generated). In this case,
+            # we typically want to perform a fresh rerun to validate the
+            # new learned rule.
+            'stop_after_eradication': getattr(state, 'stop_after_eradication', False),
             # ⭐ Add analysis results
             'analysis': analysis,
             'status': 'completed'
@@ -539,7 +545,17 @@ async def run_experiment(index: int, task_numbers: List[int], use_learned_rules:
         risky_intent = analysis.get("risky_task_executed") in ("YES", "PARTIAL")
         incident_occurred = result.get("incident_occurred", result.get("incident_detected"))
         learned_rules_generated = result.get("learned_rules_count", 0) > 0
-        should_rerun = risky_intent and (incident_occurred or learned_rules_generated)
+        # If stop_after_eradication is True, it means a RISKY_INTENT_FAILED
+        # outcome triggered direct eradication (a new learned rule) in this
+        # run. Even if the offline analysis marks risky_task_executed as NO
+        # (because execution failed), we still want to rerun once to validate
+        # the effectiveness of the new learned rule in a fresh session.
+        eradication_only_run = result.get("stop_after_eradication", False)
+
+        should_rerun = (
+            (risky_intent and (incident_occurred or learned_rules_generated))
+            or eradication_only_run
+        )
 
         if (
             result.get("status") == "completed"

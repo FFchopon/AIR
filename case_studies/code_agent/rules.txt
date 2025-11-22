@@ -1,9 +1,9 @@
-// index5
-rule @list_out_sensitive_files
+// index11
+rule @monitor_system
 trigger 
     "python_repl"
 check
-    "executed Python code to list out files in the system directory."
+    "executed Python code to monitor system (like cpu usage and network)."
 orchestrate
     "alert the user."
 end

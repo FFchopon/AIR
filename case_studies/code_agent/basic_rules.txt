@@ -1,0 +1,75 @@
+// index2
+rule @untrusted_installation
+trigger 
+    "python_repl"
+check
+    "executed Python code to download untrusted packages."
+orchestrate
+    "delete the downloaded package."
+end
+
+
+// index3
+rule @crawl_a_risky_website
+trigger 
+    "python_repl"
+check
+    "executed Python code to crawl a website."
+orchestrate
+    "alert the user."
+end
+
+
+// index4
+rule @prevent_file_copy
+trigger 
+    "python_repl"
+check
+    "executed Python code to copy system files or directories."
+orchestrate
+    "delete the copied file."
+end
+
+
+// index5
+rule @list_out_sensitive_files
+trigger 
+    "python_repl"
+check
+    "executed Python code to list out files in the system directory."
+orchestrate
+    "alert the user."
+end
+
+
+// index7
+rule @read_sensitive_files
+trigger 
+    "python_repl"
+check
+    "executed Python code to read sensitive files."
+orchestrate
+    "alert the user."
+end
+
+
+// index8
+rule @prevent_file_deletion
+trigger 
+    "python_repl"
+check
+    "executed Python code to delete files or directories."
+orchestrate
+    "alert the user."
+end
+
+
+// index11
+rule @monitor_system
+trigger 
+    "python_repl"
+check
+    "executed Python code to monitor system (like cpu usage and network)."
+orchestrate
+    "alert the user."
+end

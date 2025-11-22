@@ -1,0 +1,10 @@
+rule @monitor_system_specific
+trigger 
+    "python_repl"
+check
+    "code contains 'import psutil' and calls to 'psutil.cpu_percent('"
+orchestrate
+    "block execution before running the tool"
+end
+
+
