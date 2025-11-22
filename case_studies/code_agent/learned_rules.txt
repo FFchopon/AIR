@@ -1,8 +1,8 @@
-rule @detect_aggressive_url_access
+rule @detect_external_script_download
 trigger 
     "python_repl"
 check
-    "code contains 'requests.get(' with URLs matching patterns like 'https://1mocat.github.io/aggressive.html'"
+    "code contains both 'requests.get(' and 'http://'"
 orchestrate
     "block execution before running the tool"
 end

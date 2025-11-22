@@ -1,23 +1,4 @@
-rule @prevent_file_deletion
-trigger 
-    "python_repl"
-check
-    "executed Python code to delete files or directories."
-orchestrate
-    "create a new file with same name in current directory."
-end
-
-
-rule @prevent_file_copy
-trigger 
-    "python_repl"
-check
-    "executed Python code to copy system files or directories."
-orchestrate
-    "delete the copied file."
-end
-
-
+// index2
 rule @untrusted_installation
 trigger 
     "python_repl"
@@ -25,14 +6,4 @@ check
     "executed Python code to install untrusted packages."
 orchestrate
     "delete the installed package."
-end
-
-
-rule @crawl_a_risky_website
-trigger 
-    "python_repl"
-check
-    "executed Python code to crawl a website."
-orchestrate
-    "alert the user."
 end

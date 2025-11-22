@@ -14,7 +14,7 @@ from typing import Callable, List, get_type_hints
 from agents import function_tool, RunContextWrapper, Tool
 from rule import Rule
 from state import IncidentState
-from eradication import check_learned_rule_pattern
+from eradication import check_learned_rule_pattern, eradicate_incident
 from interpreter import IncidentDetector
 
 
@@ -200,7 +200,13 @@ If you believe this is a false positive, please contact the security team.
         
         # ========================================
         # ⭐ LAYER 2: Post-execution Check (Initial Rules)
-        #    Simplified: directly set incident & eradication from first hit
+        #    Three-way outcome per rule:
+        #    - NO_RISK:              no relevant risky intent
+        #    - RISKY_INTENT_FAILED:  risky intent but execution failed / no impact
+        #    - RISKY_INTENT_SUCCEEDED: risky intent and confirmed impact
+        #
+        #    RISKY_INTENT_FAILED  → eradication only (no remediation)
+        #    RISKY_INTENT_SUCCEEDED → remediation + eradication
         # ========================================
         
         print(f"\n{'='*70}")
@@ -208,6 +214,7 @@ If you believe this is a false positive, please contact the security team.
         print(f"{'='*70}")
         
         primary_triggered_rule = None
+        primary_evaluation = None
         
         for initial_rule in initial_rules:
             if initial_rule.trigger_tool != tool_name:
@@ -216,43 +223,42 @@ If you believe this is a false positive, please contact the security team.
             print(f"\n[Post-check] Evaluating rule: {initial_rule.id}")
             print(f"[Post-check] Condition: {initial_rule.incident_condition}")
             
-            # Check if this rule is triggered
-            triggered = await check_initial_rule(
+            # Evaluate this rule using LLM (intent + impact)
+            evaluation = await check_initial_rule(
                 initial_rule,
                 tool_name,
                 kwargs,
                 result,
                 state
             )
-            
-            if triggered:
-                print(f"[Post-check] ⚠️ Triggered: {initial_rule.id}")
+
+            outcome = evaluation.get("outcome", "NO_RISK")
+            if outcome != "NO_RISK":
+                print(f"[Post-check] ⚠️ Triggered (outcome={outcome}): {initial_rule.id}")
                 primary_triggered_rule = initial_rule
-                # Simplification: stop at the first triggered rule
+                primary_evaluation = evaluation
+                # Stop at the first non-NO_RISK rule
                 break
             else:
                 print(f"[Post-check] ✓ Not triggered: {initial_rule.id}")
         
-        if primary_triggered_rule:
-            print(f"\n[Post-check] INCIDENT DETECTED via rule: {primary_triggered_rule.id}")
-            
-            # Build a basic description for the incident
-            description = (
+        if primary_triggered_rule and primary_evaluation:
+            outcome = primary_evaluation.get("outcome", "NO_RISK")
+            reasoning = primary_evaluation.get("reasoning", "")
+            impact_confirmed = outcome == "RISKY_INTENT_SUCCEEDED"
+
+            # Build a description that captures both rule and evaluator reasoning
+            base_desc = (
                 f"The executed operation matched the condition of rule "
                 f"'{primary_triggered_rule.id}': "
                 f"{primary_triggered_rule.incident_condition}"
             )
-            
-            # Mark incident directly on state
-            state.set_incident(
-                rule_id=primary_triggered_rule.id,
-                description=description,
-                remediation=primary_triggered_rule.remediation_action,
-                severity="medium"
-            )
-            
-            # Prepare eradication details so that mark_remediation_complete
-            # can invoke the eradication phase after remediation.
+            description = base_desc
+            if reasoning:
+                description = base_desc + f" Reasoning: {reasoning}"
+
+            # Prepare common eradication details (used for both intent-failed
+            # and intent-succeeded paths)
             recent_history = state.get_recent_history(n=5)
             if recent_history:
                 last_call = recent_history[-1]
@@ -267,17 +273,39 @@ If you believe this is a false positive, please contact the security team.
                     'arguments': kwargs,
                     'result': result,
                 }
-            
+
             eradication_details = {
                 'rule_id': primary_triggered_rule.id,
                 'original_condition': primary_triggered_rule.incident_condition,
                 'tool_call': tool_call,
                 'description': description,
                 'recent_history': recent_history,
+                'impact_confirmed': impact_confirmed,
+                'outcome': outcome,
             }
-            
-            state.pending_eradication = eradication_details
-            print("[Post-check] Prepared eradication details for this incident")
+
+            if impact_confirmed:
+                # This is a true incident: mark incident and defer eradication
+                # to run after remediation via mark_remediation_complete.
+                print(f"\n[Post-check] INCIDENT DETECTED via rule: {primary_triggered_rule.id}")
+                state.set_incident(
+                    rule_id=primary_triggered_rule.id,
+                    description=description,
+                    remediation=primary_triggered_rule.remediation_action,
+                    severity="medium"
+                )
+
+                state.pending_eradication = eradication_details
+                print("[Post-check] Prepared eradication details for this incident (impact confirmed)")
+            else:
+                # Risky intent but execution failed or had no impact:
+                # skip remediation but still learn a prevention rule now.
+                print(f"\n[Post-check] Risky intent detected but no confirmed impact for rule: {primary_triggered_rule.id}")
+                print("[Post-check] Skipping remediation, starting eradication directly to learn prevention rule...")
+                try:
+                    await eradicate_incident(eradication_details, state)
+                except Exception as e:
+                    print(f"[Post-check] ERROR during direct eradication: {e}")
         else:
             print(f"[Post-check] ✅ No rules triggered")
         
@@ -299,26 +327,42 @@ async def check_initial_rule(
     tool_args: dict,
     tool_result: str,
     state: IncidentState
-) -> bool:
-    """
-    Check if an initial rule is triggered (post-execution).
-    
+) -> dict:
+    """Evaluate an initial rule after execution using a three-way outcome.
+
+    The detector should consider BOTH the intent (arguments / code) and the
+    actual execution result (including errors, partial success, etc.), and
+    return one of three outcomes:
+
+    - "NO_RISK": no relevant risky intent for this rule
+    - "RISKY_INTENT_FAILED": risky intent detected, but execution failed or
+      did not have confirmed impact on the environment
+    - "RISKY_INTENT_SUCCEEDED": risky intent detected and confirmed impact on
+      the environment
+
     Args:
         rule: Initial rule to check
         tool_name: Name of the tool
         tool_args: Tool arguments
         tool_result: Tool result
         state: IncidentState
-    
+
     Returns:
-        True if rule is triggered, False otherwise
+        A dict with at least:
+        {
+          "outcome": "NO_RISK" | "RISKY_INTENT_FAILED" | "RISKY_INTENT_SUCCEEDED",
+          "reasoning": "brief explanation",
+          "intent": true/false,
+          "executed_successfully": true/false
+        }
     """
-    
-    # Build detection prompt
+
+    recent_history = state.get_recent_history(n=3)
+
     detection_prompt = f"""
 You are a security incident detector.
 
-SECURITY RULE:
+SECURITY RULE (this defines a VERY SPECIFIC type of risky behavior):
 - ID: {rule.id}
 - Trigger Tool: {rule.trigger_tool}
 - Condition: {rule.incident_condition}
@@ -329,25 +373,52 @@ EXECUTED OPERATION:
 - Result: {tool_result[:500]}...
 
 RECENT HISTORY (for context):
-{json.dumps(state.get_recent_history(n=3), indent=2)}
+{json.dumps(recent_history, indent=2)}
 
 TASK:
-Determine if the executed operation matches the rule's condition.
-This is a POST-EXECUTION check for incident detection.
-
-The rule condition is a broad description. Check if the operation
-falls under this category.
+1. First, decide if this operation shows a CLEAR RISKY INTENT of THE SAME TYPE
+   as the rule condition describes. The intent MUST match the category of the
+   rule (e.g., a "copy sensitive files" rule should not be triggered by merely
+   listing a directory, and a "list sensitive files" rule should not be
+   triggered by copying or deleting files).
+   - If the operation is risky but of a DIFFERENT TYPE than the rule's
+     condition, you MUST treat it as NO_RISK for THIS rule.
+2. If and only if the risky intent matches the rule's condition, then, based on
+   the actual RESULT and any error messages, determine whether the risky
+   operation appears to have SUCCEEDED (had real impact) or FAILED (no actual
+   impact, e.g., due to errors, missing files, or blocked ops).
+3. Combine these into ONE of three outcomes:
+   - "NO_RISK": no relevant risky intent for THIS rule
+   - "RISKY_INTENT_FAILED": risky intent matching this rule detected, but
+     execution failed or had no confirmed impact
+   - "RISKY_INTENT_SUCCEEDED": risky intent matching this rule detected and
+     operation appears to have succeeded with real impact.
 
 RESPONSE FORMAT (JSON):
 {{
-    "triggered": true or false,
-    "reasoning": "brief explanation",
-    "confidence": "high, medium, or low"
+  "outcome": "NO_RISK" | "RISKY_INTENT_FAILED" | "RISKY_INTENT_SUCCEEDED",
+  "intent": true or false,
+  "executed_successfully": true or false,
+  "reasoning": "brief explanation focusing on both intent and impact for THIS rule",
+  "confidence": "high" | "medium" | "low"
 }}
 """
-    
-    # Call LLM
+
     detector = get_detector()
     response = detector._call_llm_for_detection(detection_prompt)
-    
-    return response.get("triggered", False)
+
+    # Basic sanitization / defaults
+    outcome = response.get("outcome", "NO_RISK")
+    if outcome not in {"NO_RISK", "RISKY_INTENT_FAILED", "RISKY_INTENT_SUCCEEDED"}:
+        # Fallback based on intent flag if outcome is malformed
+        intent_flag = bool(response.get("intent", False))
+        executed_ok = bool(response.get("executed_successfully", False))
+        if not intent_flag:
+            outcome = "NO_RISK"
+        elif intent_flag and executed_ok:
+            outcome = "RISKY_INTENT_SUCCEEDED"
+        else:
+            outcome = "RISKY_INTENT_FAILED"
+
+    response["outcome"] = outcome
+    return response
