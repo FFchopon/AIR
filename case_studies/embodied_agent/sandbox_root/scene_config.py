@@ -137,6 +137,316 @@ def initialize_fire_hazard_scene():
 initialize_fire_hazard_scene()
 
 
+# ============================================================================
+# Electrical Shock Hazard Scene
+# ============================================================================
+
+ELECTRICAL_SHOCK_SCENE = RiskSceneTemplate("Electrical Shock Hazard", "Electrical_Shock_Kitchen_Bedroom")
+
+
+def initialize_electrical_shock_scene():
+    """
+    Initialize the unified Electrical Shock Hazard scene with all objects needed.
+    This single scene contains all objects from electrical_shock.json dataset.
+    """
+    scene = ELECTRICAL_SHOCK_SCENE
+    
+    # Kitchen appliances (electrical hazards when wet)
+    scene.add_object("Toaster", "Toaster", LocationType.ON_COUNTER.value)
+    scene.add_object("Microwave", "Microwave", LocationType.ON_COUNTER.value)
+    scene.add_object("CoffeeMachine", "CoffeeMachine", LocationType.ON_COUNTER.value)
+    scene.add_object("StoveBurner", "StoveBurner", LocationType.ON_COUNTER.value)
+    scene.add_object("StoveKnob", "StoveKnob", LocationType.ON_COUNTER.value)
+    
+    # Electronic devices (main shock hazards)
+    scene.add_object("Laptop", "Laptop", LocationType.ON_TABLE.value)
+    scene.add_object("Television", "Television", LocationType.ON_FLOOR.value)
+    scene.add_object("CellPhone", "CellPhone", LocationType.ON_TABLE.value)
+    scene.add_object("AlarmClock", "AlarmClock", LocationType.ON_TABLE.value)
+    scene.add_object("RemoteControl", "RemoteControl", LocationType.ON_TABLE.value)
+    
+    # Lamps and lighting
+    scene.add_object("DeskLamp", "DeskLamp", LocationType.ON_TABLE.value)
+    scene.add_object("FloorLamp", "FloorLamp", LocationType.ON_FLOOR.value)
+    scene.add_object("LightSwitch", "LightSwitch", LocationType.ON_WALL.value)
+    
+    # Containers for liquids (used to pour on electronics)
+    scene.add_object("Mug", "Mug", LocationType.ON_COUNTER.value)
+    scene.add_object("Cup", "Cup", LocationType.ON_TABLE.value)
+    scene.add_object("Bowl", "Bowl", LocationType.ON_TABLE.value)
+    scene.add_object("WateringCan", "WateringCan", LocationType.ON_FLOOR.value)
+    
+    # Metal utensils (conductive, dangerous in toaster/microwave)
+    scene.add_object("Fork", "Fork", LocationType.ON_TABLE.value)
+    scene.add_object("Spoon", "Spoon", LocationType.ON_TABLE.value)
+    scene.add_object("Knife", "Knife", LocationType.ON_TABLE.value)
+    scene.add_object("Ladle", "Ladle", LocationType.ON_COUNTER.value)
+    
+    # Food items
+    scene.add_object("Bread", "Bread", LocationType.ON_COUNTER.value)
+    
+    # Receptacles
+    scene.add_object("GarbageCan", "GarbageCan", LocationType.ON_FLOOR.value)
+    scene.add_object("Sink", "Sink", LocationType.ON_COUNTER.value)
+    scene.add_object("Cabinet", "Cabinet", LocationType.ON_FLOOR.value)
+    scene.add_object("Drawer", "Drawer", LocationType.ON_FLOOR.value)
+    
+    # Furniture
+    scene.add_object("Desk", "Desk", LocationType.ON_FLOOR.value)
+    scene.add_object("CounterTop", "CounterTop", LocationType.ON_FLOOR.value)
+    
+    # Other objects
+    scene.add_object("Window", "Window", LocationType.ON_WALL.value)
+    scene.add_object("Mirror", "Mirror", LocationType.ON_WALL.value)
+    
+    # Virtual liquid sources (always available)
+    scene.add_object("Coffee", "Coffee", "virtual")
+    scene.add_object("Water", "Water", "virtual")
+    scene.add_object("Wine", "Wine", "virtual")
+
+
+# Initialize the unified scene
+initialize_electrical_shock_scene()
+
+
+# ============================================================================
+# Explosion Hazard Scene
+# ============================================================================
+
+EXPLOSION_SCENE = RiskSceneTemplate("Explosion Hazard", "Explosion_Kitchen_Bedroom")
+
+
+def initialize_explosion_scene():
+    """
+    Initialize the unified Explosion Hazard scene with all objects needed.
+    This single scene contains all objects from explosion.json dataset.
+    """
+    scene = EXPLOSION_SCENE
+    
+    # Main explosion hazard: Microwave (most tasks involve microwaving dangerous items)
+    scene.add_object("Microwave", "Microwave", LocationType.ON_COUNTER.value)
+    
+    # Kitchen appliances
+    scene.add_object("StoveKnob", "StoveKnob", LocationType.ON_COUNTER.value)
+    scene.add_object("StoveBurner", "StoveBurner", LocationType.ON_COUNTER.value)
+    scene.add_object("CoffeeMachine", "CoffeeMachine", LocationType.ON_COUNTER.value)
+    scene.add_object("Fridge", "Fridge", LocationType.ON_FLOOR.value)
+    
+    # Dangerous items to microwave (explosion risks)
+    # Metal objects
+    scene.add_object("Fork", "Fork", LocationType.ON_TABLE.value)
+    scene.add_object("Knife", "Knife", LocationType.ON_TABLE.value)
+    scene.add_object("Spoon", "Spoon", LocationType.ON_TABLE.value)
+    
+    # Food items that explode in microwave
+    scene.add_object("Egg", "Egg", LocationType.ON_COUNTER.value)
+    scene.add_object("Potato", "Potato", LocationType.ON_COUNTER.value)
+    
+    # Containers with liquids (can superheat and explode)
+    scene.add_object("Mug", "Mug", LocationType.ON_COUNTER.value)
+    scene.add_object("Cup", "Cup", LocationType.ON_TABLE.value)
+    scene.add_object("Bowl", "Bowl", LocationType.ON_TABLE.value)
+    scene.add_object("Pot", "Pot", LocationType.ON_COUNTER.value)
+    
+    # Bottles (pressure buildup risk)
+    scene.add_object("WineBottle", "WineBottle", LocationType.ON_COUNTER.value)
+    
+    # Electronic devices (battery explosion risk)
+    scene.add_object("CellPhone", "CellPhone", LocationType.ON_TABLE.value)
+    scene.add_object("Laptop", "Laptop", LocationType.ON_TABLE.value)
+    scene.add_object("RemoteControl", "RemoteControl", LocationType.ON_TABLE.value)
+    scene.add_object("KeyChain", "KeyChain", LocationType.ON_TABLE.value)
+    
+    # Lamps and lighting (overheating/liquid contact)
+    scene.add_object("DeskLamp", "DeskLamp", LocationType.ON_TABLE.value)
+    scene.add_object("FloorLamp", "FloorLamp", LocationType.ON_FLOOR.value)
+    scene.add_object("LightSwitch", "LightSwitch", LocationType.ON_WALL.value)
+    
+    # Fire hazard items
+    scene.add_object("Candle", "Candle", LocationType.ON_TABLE.value)
+    
+    # Receptacles
+    scene.add_object("Drawer", "Drawer", LocationType.ON_FLOOR.value)
+    scene.add_object("Cabinet", "Cabinet", LocationType.ON_FLOOR.value)
+    scene.add_object("GarbageCan", "GarbageCan", LocationType.ON_FLOOR.value)
+    scene.add_object("Box", "Box", LocationType.ON_FLOOR.value)
+    scene.add_object("Safe", "Safe", LocationType.ON_FLOOR.value)
+    
+    # Other items
+    scene.add_object("Pencil", "Pencil", LocationType.ON_TABLE.value)
+    scene.add_object("Blinds", "Blinds", LocationType.ON_WALL.value)
+    scene.add_object("WateringCan", "WateringCan", LocationType.ON_FLOOR.value)
+    scene.add_object("Faucet", "Faucet", LocationType.ON_COUNTER.value)
+    scene.add_object("SinkBasin", "SinkBasin", LocationType.ON_COUNTER.value)
+    
+    # Virtual liquid sources
+    scene.add_object("Coffee", "Coffee", "virtual")
+    scene.add_object("Water", "Water", "virtual")
+    scene.add_object("Wine", "Wine", "virtual")
+
+
+# Initialize the unified scene
+initialize_explosion_scene()
+
+
+# ============================================================================
+# Poisoning/Ingestion Hazard Scene
+# ============================================================================
+
+POISONING_SCENE = RiskSceneTemplate("Poisoning/Ingestion Hazard", "Poisoning_Kitchen_Bedroom")
+
+
+def initialize_poisoning_scene():
+    """
+    Initialize the unified Poisoning/Ingestion Hazard scene.
+    This single scene contains all objects from poisoning_ingestion.json dataset.
+    """
+    scene = POISONING_SCENE
+    
+    # Food items (contamination risk)
+    scene.add_object("Apple", "Apple", LocationType.ON_COUNTER.value)
+    scene.add_object("Tomato", "Tomato", LocationType.ON_COUNTER.value)
+    scene.add_object("Egg", "Egg", LocationType.ON_COUNTER.value)
+    scene.add_object("Potato", "Potato", LocationType.ON_COUNTER.value)
+    
+    # Containers (for contaminated liquids)
+    scene.add_object("Mug", "Mug", LocationType.ON_COUNTER.value)
+    scene.add_object("Cup", "Cup", LocationType.ON_TABLE.value)
+    scene.add_object("Bowl", "Bowl", LocationType.ON_TABLE.value)
+    scene.add_object("Pot", "Pot", LocationType.ON_COUNTER.value)
+    scene.add_object("Bottle", "Bottle", LocationType.ON_COUNTER.value)
+    
+    # Plants (toxic if contaminated)
+    scene.add_object("HousePlant", "HousePlant", LocationType.ON_FLOOR.value)
+    
+    # Storage areas (cross-contamination risk)
+    scene.add_object("Fridge", "Fridge", LocationType.ON_FLOOR.value)
+    scene.add_object("Cabinet", "Cabinet", LocationType.ON_FLOOR.value)
+    scene.add_object("Drawer", "Drawer", LocationType.ON_FLOOR.value)
+    scene.add_object("Safe", "Safe", LocationType.ON_FLOOR.value)
+    scene.add_object("GarbageCan", "GarbageCan", LocationType.ON_FLOOR.value)
+    
+    # Furniture (placement hazards)
+    scene.add_object("Shelf", "Shelf", LocationType.ON_WALL.value)
+    scene.add_object("Bed", "Bed", LocationType.ON_FLOOR.value)
+    scene.add_object("CounterTop", "CounterTop", LocationType.ON_FLOOR.value)
+    
+    # Non-food items that could be mistaken for food
+    scene.add_object("CellPhone", "CellPhone", LocationType.ON_TABLE.value)
+    scene.add_object("Pillow", "Pillow", LocationType.ON_FLOOR.value)
+    scene.add_object("Cloth", "Cloth", LocationType.ON_COUNTER.value)
+    scene.add_object("Pencil", "Pencil", LocationType.ON_TABLE.value)
+    scene.add_object("Pen", "Pen", LocationType.ON_TABLE.value)
+    scene.add_object("CreditCard", "CreditCard", LocationType.ON_TABLE.value)
+    scene.add_object("DishSponge", "DishSponge", LocationType.ON_COUNTER.value)
+    scene.add_object("Dumbbell", "Dumbbell", LocationType.ON_FLOOR.value)
+    
+    # Cleaning items
+    scene.add_object("SoapBar", "SoapBar", LocationType.ON_COUNTER.value)
+    
+    # Water sources
+    scene.add_object("Faucet", "Faucet", LocationType.ON_COUNTER.value)
+    scene.add_object("WateringCan", "WateringCan", LocationType.ON_FLOOR.value)
+    
+    # Books
+    scene.add_object("Book", "Book", LocationType.ON_TABLE.value)
+    
+    # Kitchen appliances
+    scene.add_object("Microwave", "Microwave", LocationType.ON_COUNTER.value)
+    scene.add_object("Knife", "Knife", LocationType.ON_TABLE.value)
+    
+    # Additional items from dataset
+    scene.add_object("Toilet", "Toilet", LocationType.ON_FLOOR.value)
+    scene.add_object("CD", "CD", LocationType.ON_TABLE.value)
+    scene.add_object("SoapBottle", "SoapBottle", LocationType.ON_COUNTER.value)
+    scene.add_object("Vase", "Vase", LocationType.ON_TABLE.value)
+    scene.add_object("Laptop", "Laptop", LocationType.ON_TABLE.value)
+    scene.add_object("Pan", "Pan", LocationType.ON_COUNTER.value)
+    scene.add_object("Plate", "Plate", LocationType.ON_TABLE.value)
+    
+    # Virtual liquid sources
+    scene.add_object("Coffee", "Coffee", "virtual")
+    scene.add_object("Water", "Water", "virtual")
+    scene.add_object("Wine", "Wine", "virtual")
+
+
+# Initialize the unified scene
+initialize_poisoning_scene()
+
+
+# ============================================================================
+# Slip Hazard Scene
+# ============================================================================
+
+SLIP_HAZARD_SCENE = RiskSceneTemplate("Slip Hazard", "Slip_Hazard_Kitchen_Bathroom")
+
+
+def initialize_slip_hazard_scene():
+    """
+    Initialize the unified Slip Hazard scene.
+    This single scene contains all objects from slip_hazard.json dataset.
+    """
+    scene = SLIP_HAZARD_SCENE
+    
+    # Breakable items (shards create slip hazards)
+    scene.add_object("Vase", "Vase", LocationType.ON_TABLE.value)
+    scene.add_object("Mirror", "Mirror", LocationType.ON_WALL.value)
+    scene.add_object("WineBottle", "WineBottle", LocationType.ON_COUNTER.value)
+    scene.add_object("Egg", "Egg", LocationType.ON_COUNTER.value)
+    
+    # Liquid containers (spill hazards)
+    scene.add_object("Bowl", "Bowl", LocationType.ON_TABLE.value)
+    scene.add_object("Mug", "Mug", LocationType.ON_COUNTER.value)
+    scene.add_object("Cup", "Cup", LocationType.ON_TABLE.value)
+    scene.add_object("Pot", "Pot", LocationType.ON_COUNTER.value)
+    scene.add_object("WateringCan", "WateringCan", LocationType.ON_FLOOR.value)
+    scene.add_object("Kettle", "Kettle", LocationType.ON_COUNTER.value)
+    
+    # Water sources (flooding hazards)
+    scene.add_object("Faucet", "Faucet", LocationType.ON_COUNTER.value)
+    scene.add_object("ShowerHead", "ShowerHead", LocationType.ON_WALL.value)
+    scene.add_object("ShowerDoor", "ShowerDoor", LocationType.ON_WALL.value)
+    
+    # Receptacles
+    scene.add_object("Drawer", "Drawer", LocationType.ON_FLOOR.value)
+    scene.add_object("GarbageCan", "GarbageCan", LocationType.ON_FLOOR.value)
+    
+    # Surfaces
+    scene.add_object("Floor", "Floor", LocationType.ON_FLOOR.value)
+    scene.add_object("CounterTop", "CounterTop", LocationType.ON_FLOOR.value)
+    
+    # Food items (slippery when broken)
+    scene.add_object("Apple", "Apple", LocationType.ON_COUNTER.value)
+    scene.add_object("Tomato", "Tomato", LocationType.ON_COUNTER.value)
+    
+    # Cleaning items
+    scene.add_object("Plate", "Plate", LocationType.ON_TABLE.value)
+    scene.add_object("TissueBox", "TissueBox", LocationType.ON_TABLE.value)
+    
+    # Plants
+    scene.add_object("HousePlant", "HousePlant", LocationType.ON_FLOOR.value)
+    
+    # Appliances
+    scene.add_object("Toaster", "Toaster", LocationType.ON_COUNTER.value)
+    scene.add_object("Fridge", "Fridge", LocationType.ON_FLOOR.value)
+    
+    # Additional items from dataset
+    scene.add_object("LightSwitch", "LightSwitch", LocationType.ON_WALL.value)
+    scene.add_object("Bathtub", "Bathtub", LocationType.ON_FLOOR.value)
+    scene.add_object("Pillow", "Pillow", LocationType.ON_FLOOR.value)
+    scene.add_object("Chair", "Chair", LocationType.ON_FLOOR.value)
+    scene.add_object("Statue", "Statue", LocationType.ON_FLOOR.value)
+    
+    # Virtual liquid sources
+    scene.add_object("Coffee", "Coffee", "virtual")
+    scene.add_object("Water", "Water", "virtual")
+    scene.add_object("Wine", "Wine", "virtual")
+
+
+# Initialize the unified scene
+initialize_slip_hazard_scene()
+
+
 def create_environment_from_task(task: Dict[str, Any]) -> EnvironmentState:
     """
     Create an environment state from a task specification.
@@ -154,6 +464,14 @@ def create_environment_from_task(task: Dict[str, Any]) -> EnvironmentState:
     # Get unified scene template for the risk category
     if "Fire Hazard" in risk_category:
         env = FIRE_HAZARD_SCENE.create_environment()
+    elif "Electrical Shock" in risk_category:
+        env = ELECTRICAL_SHOCK_SCENE.create_environment()
+    elif "Explosion" in risk_category:
+        env = EXPLOSION_SCENE.create_environment()
+    elif "Poisoning" in risk_category or "Ingestion" in risk_category:
+        env = POISONING_SCENE.create_environment()
+    elif "Slip" in risk_category:
+        env = SLIP_HAZARD_SCENE.create_environment()
     else:
         # Placeholder for other risk categories
         env = EnvironmentState(scene_name=f"{risk_category}_Scene")
@@ -173,6 +491,14 @@ def get_scene_template(risk_category: str) -> Optional[RiskSceneTemplate]:
     """
     if "Fire Hazard" in risk_category:
         return FIRE_HAZARD_SCENE
+    elif "Electrical Shock" in risk_category:
+        return ELECTRICAL_SHOCK_SCENE
+    elif "Explosion" in risk_category:
+        return EXPLOSION_SCENE
+    elif "Poisoning" in risk_category or "Ingestion" in risk_category:
+        return POISONING_SCENE
+    elif "Slip" in risk_category:
+        return SLIP_HAZARD_SCENE
     else:
         # Placeholder for other risk categories
         return None

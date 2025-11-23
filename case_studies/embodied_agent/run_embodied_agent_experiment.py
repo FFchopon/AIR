@@ -50,13 +50,13 @@ def load_tasks(risk_category: str) -> List[Dict[str, Any]]:
         "Fire Hazard": "fire_hazard.json",
         "Explosion Hazard": "explosion.json",
         "Electrical Shock Hazard": "electrical_shock.json",
-        "Poisoning Hazard": "poisoning.json",
+        "Poisoning/Ingestion Hazard": "poisoning_ingestion.json",
+        "Slip Hazard": "slip_hazard.json",
         "Suffocation Hazard": "suffocation.json",
         "Burn Hazard": "burn.json",
         "Scalding Hazard": "scalding.json",
         "Cuts and Lacerations": "cuts.json",
         "Physical Injury": "physical_injury.json",
-        "Environmental Hazard": "environmental.json",
     }
     
     filename = category_files.get(risk_category)
@@ -247,14 +247,16 @@ async def run_experiment(
         results.append(result)
         
         # Save individual result
-        result_file = RESULTS_DIR / f"{risk_category.replace(' ', '_')}_task_{task_num}.json"
+        safe_category = risk_category.replace(' ', '_').replace('/', '_')
+        result_file = RESULTS_DIR / f"{safe_category}_task_{task_num}.json"
         with open(result_file, 'w', encoding='utf-8') as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
         
         print(f"\n[Saved] {result_file}")
     
     # Save batch results
-    batch_file = RESULTS_DIR / f"{risk_category.replace(' ', '_')}_batch_results.json"
+    safe_category = risk_category.replace(' ', '_').replace('/', '_')
+    batch_file = RESULTS_DIR / f"{safe_category}_batch_results.json"
     with open(batch_file, 'w', encoding='utf-8') as f:
         json.dump({
             'risk_category': risk_category,
@@ -279,15 +281,15 @@ async def run_experiment(
 
 RISK_CATEGORIES = {
     "1": {"name": "Fire Hazard", "file": "fire_hazard.json", "implemented": True},
-    "2": {"name": "Explosion Hazard", "file": "explosion.json", "implemented": False},
-    "3": {"name": "Electrical Shock Hazard", "file": "electrical_shock.json", "implemented": False},
-    "4": {"name": "Poisoning Hazard", "file": "poisoning.json", "implemented": False},
-    "5": {"name": "Suffocation Hazard", "file": "suffocation.json", "implemented": False},
-    "6": {"name": "Burn Hazard", "file": "burn.json", "implemented": False},
-    "7": {"name": "Scalding Hazard", "file": "scalding.json", "implemented": False},
-    "8": {"name": "Cuts and Lacerations", "file": "cuts.json", "implemented": False},
-    "9": {"name": "Physical Injury", "file": "physical_injury.json", "implemented": False},
-    "10": {"name": "Environmental Hazard", "file": "environmental.json", "implemented": False},
+    "2": {"name": "Electrical Shock Hazard", "file": "electrical_shock.json", "implemented": True},
+    "3": {"name": "Explosion Hazard", "file": "explosion.json", "implemented": True},
+    "4": {"name": "Poisoning/Ingestion Hazard", "file": "poisoning_ingestion.json", "implemented": True},
+    "5": {"name": "Slip Hazard", "file": "slip_hazard.json", "implemented": True},
+    "6": {"name": "Suffocation Hazard", "file": "suffocation.json", "implemented": False},
+    "7": {"name": "Burn Hazard", "file": "burn.json", "implemented": False},
+    "8": {"name": "Scalding Hazard", "file": "scalding.json", "implemented": False},
+    "9": {"name": "Cuts and Lacerations", "file": "cuts.json", "implemented": False},
+    "10": {"name": "Physical Injury", "file": "physical_injury.json", "implemented": False},
 }
 
 
@@ -365,7 +367,7 @@ def interactive_mode():
         
         if not category_info["implemented"]:
             print(f"\n⚠️  {category_info['name']} is not yet implemented.")
-            print("   Only Fire Hazard is currently available.")
+            print("   Currently available: Fire Hazard, Electrical Shock, Explosion, Poisoning/Ingestion, Slip Hazard")
             input("\nPress Enter to continue...")
             continue
         

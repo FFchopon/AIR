@@ -64,6 +64,7 @@ class LocationType(Enum):
     ON_FLOOR = "on the floor"
     ON_TABLE = "on the table"
     ON_COUNTER = "on the counter"
+    ON_WALL = "on the wall"  # For switches, mirrors, windows
     IN_CONTAINER = "in container"  # Specific container in parentReceptacles
     ON_APPLIANCE = "on appliance"  # e.g., on StoveBurner
     HELD_BY_AGENT = "held by agent"
