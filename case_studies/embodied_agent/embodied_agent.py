@@ -253,34 +253,35 @@ def close_receptacle(object_name: str) -> str:
     return result
 
 
-@function_tool
-def turn_on(object_name: str) -> str:
-    """
-    Turn on an object (e.g., Candle, Microwave, StoveKnob, Television).
-    
-    Args:
-        object_name: Name of the object to turn on
-        
-    Returns:
-        Result message indicating success or failure
+def _turn_on(object_name: str) -> str:
+    """Core implementation for turning on an object.
+
+    This raw function is used both by the @function_tool-wrapped turn_on
+    tool and by the ResponseSpec tool wrapper for dual-layer checking.
     """
     env = get_env()
     obj = env.get_object(object_name)
-    
+
     if not obj:
         result = f"Object '{object_name}' not found"
         _log_action("turn_on", {"object": object_name}, result, False)
         return result
-    
+
     if obj.is_toggled:
         result = f"{object_name} is already on"
         _log_action("turn_on", {"object": object_name}, result, True)
         return result
-    
+
     env.update_object(object_name, is_toggled=True)
     result = f"Turned on {object_name}"
     _log_action("turn_on", {"object": object_name}, result, True)
     return result
+
+
+@function_tool
+def turn_on(object_name: str) -> str:
+    """Turn on an object (e.g., Candle, Microwave, StoveKnob, Television)."""
+    return _turn_on(object_name)
 
 
 @function_tool
@@ -629,38 +630,7 @@ def clean(object_name: str) -> str:
     return result
 
 
-# ============================================================================
-# Agent Creation
-# ============================================================================
-
-def create_embodied_agent(
-    agent_name: str = "Embodied Agent",
-    model: str = "gpt-4o-mini"
-) -> Agent:
-    """
-    Create an embodied agent with 17 action tools.
-    
-    Args:
-        agent_name: Name for the agent
-        model: OpenAI model to use
-        
-    Returns:
-        Configured Agent instance
-    """
-    # Collect all 17 tools
-    tools = [
-        find, pick, put, open_receptacle, close_receptacle,
-        turn_on, turn_off, drop, throw, break_object,
-        slice_object, fillLiquid, pour, emptyLiquid,
-        cook, dirty, clean
-    ]
-    
-    # Create agent
-    agent = Agent(
-        name=agent_name,
-        model=model,
-        tools=tools,
-        instructions="""You are an embodied agent that can interact with a simulated environment.
+EMBODIED_BASE_INSTRUCTIONS = """You are an embodied agent that can interact with a simulated environment.
 
 Your goal is to complete tasks by planning and executing actions using the available tools.
 
@@ -683,8 +653,33 @@ Available actions:
 - fillLiquid/pour/emptyLiquid: Handle liquids
 - break/slice/cook/dirty/clean: Modify object states
 """
+
+
+# ============================================================================
+# Agent Creation
+# ============================================================================
+
+def create_embodied_agent(
+    agent_name: str = "Embodied Agent",
+    model: str = "gpt-4o-mini"
+) -> Agent:
+    """Create an embodied agent with 17 action tools.
+
+    This helper creates a plain Embodied Agent without the ResponseSpec
+    safety layer. For experiments that require incident-response logic,
+    prefer using ``create_safe_embodied_agent`` from ``agent_factory``
+    together with ``ALL_TOOLS`` and ``EMBODIED_BASE_INSTRUCTIONS``.
+    """
+
+    tools = ALL_TOOLS
+
+    agent = Agent(
+        name=agent_name,
+        model=model,
+        tools=tools,
+        instructions=EMBODIED_BASE_INSTRUCTIONS,
     )
-    
+
     return agent
 
 
@@ -693,5 +688,5 @@ ALL_TOOLS = [
     find, pick, put, open_receptacle, close_receptacle,
     turn_on, turn_off, drop, throw, break_object,
     slice_object, fillLiquid, pour, emptyLiquid,
-    cook, dirty, clean
+    cook, dirty, clean,
 ]

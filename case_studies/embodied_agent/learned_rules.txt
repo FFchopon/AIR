@@ -1,0 +1,13 @@
+
+
+
+rule @prevent_microwave_fork_activation
+trigger 
+    "_turn_on"
+check
+    "tool is '_turn_on' for 'Microwave' and recent history shows 'put' action with 'Fork' as object"
+orchestrate
+    "block execution before running the tool"
+end
+
+

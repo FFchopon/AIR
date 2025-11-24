@@ -203,3 +203,97 @@ def create_safe_agent_with_custom_instructions(
     )
     
     return agent, state
+
+
+def create_safe_embodied_agent(
+    rule_file: str,
+    tools: List[Tool],
+    base_instructions: str,
+    agent_name: str = "Embodied Agent",
+    model: str = "gpt-4o-mini",
+    llm_client=None,
+    session=None,
+    turn_on_impl: Optional[Callable] = None,
+) -> tuple[Agent[IncidentState], IncidentState]:
+    """Create a safe embodied agent using existing Tool objects.
+
+    This is a convenience factory for embodied_agent, where the 17 action
+    tools are already defined as @function_tool-wrapped Tool objects.
+
+    Unlike ``create_safe_agent`` and ``create_safe_agent_with_custom_instructions``,
+    this helper does **not** wrap the tools again with ``create_safe_tool_with_eradication``.
+    This avoids schema/signature conflicts for now, while still providing:
+
+    - Rule loading (initial + learned rules)
+    - IncidentState context for ResponseSpec
+    - IncidentDetectionHooks for lifecycle integration
+    - Dynamic instructions that combine base embodied instructions with
+      incident-response instructions
+
+    Later, once the tool wrapper supports the embodied tool signatures,
+    this helper can be migrated to use wrapped tools as well.
+    """
+
+    # Load rules and create incident state
+    rules = Rule.from_file(rule_file)
+    state = IncidentState(all_rules=rules, session=session)
+
+    # Load learned rules for pre-check use in the ResponseSpec pipeline
+    state.load_learned_rules()
+
+    # Configure interpreter and detection hooks
+    interpreter = RuleInterpreter(rules, llm_client)
+    configure_detector(llm_client)
+    hooks = IncidentDetectionHooks(interpreter)
+
+    # Dynamic instructions: combine embodied base instructions with
+    # incident-response instructions generated from the IncidentState
+    def dynamic_instructions(context, agent) -> str:
+        incident_instructions = ResponseOrchestrator.generate_dynamic_instructions(
+            context.context
+        )
+
+        # If an incident is active, prioritize incident-response protocol
+        if context.context.incident_detected:
+            return incident_instructions
+
+        # Otherwise, run normal embodied behavior with safety protocol appended
+        return f"""{base_instructions}
+
+{incident_instructions}
+"""
+
+    # Combine ResponseSpec safety tools with the provided embodied tools.
+    # If a raw implementation of turn_on is provided, wrap it with dual-layer
+    # checking and replace the original turn_on Tool in the tool list.
+    all_tools: List[Tool] = [
+        mark_remediation_complete,
+        get_incident_status,
+    ]
+
+    if turn_on_impl is not None:
+        print("[create_safe_embodied_agent] Wrapping 'turn_on' with dual-layer checks...")
+        safe_turn_on_tool = create_safe_tool_with_eradication(
+            turn_on_impl,
+            rules,
+            state,
+        )
+        # Rebuild tool list, replacing any existing 'turn_on' Tool
+        for t in tools:
+            if isinstance(t, Tool) and t.name == "turn_on":
+                all_tools.append(safe_turn_on_tool)
+            else:
+                all_tools.append(t)
+    else:
+        # Fallback: no special wrapping, use tools as-is
+        all_tools.extend(tools)
+
+    agent = Agent[IncidentState](
+        name=agent_name,
+        instructions=dynamic_instructions,
+        hooks=hooks,
+        tools=all_tools,
+        model=model,
+    )
+
+    return agent, state

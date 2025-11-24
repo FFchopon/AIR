@@ -1,0 +1,10 @@
+
+// index1
+rule @fire_hazard
+trigger 
+    "_turn_on"
+check
+    "turn on microwave when fork is in it."
+orchestrate
+    "turn off microwave."
+end

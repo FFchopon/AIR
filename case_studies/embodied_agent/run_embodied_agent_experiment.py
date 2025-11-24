@@ -17,7 +17,14 @@ sys.path.insert(0, str(Path(__file__).parent / "sandbox_root"))
 
 from agents import Runner, SQLiteSession
 from sandbox_manager import SandboxManager
-from embodied_agent import create_embodied_agent, set_sandbox
+from agent_factory import create_safe_embodied_agent
+from embodied_agent import (
+    create_embodied_agent,
+    set_sandbox,
+    ALL_TOOLS,
+    EMBODIED_BASE_INSTRUCTIONS,
+    _turn_on,
+)
 
 
 # ============================================================================
@@ -105,7 +112,7 @@ async def run_single_task(
     print(f"Risk Category: {risk_category}")
     print(f"{'='*80}\n")
     
-    # Initialize sandbox
+    # Initialize sandbox environment for this task
     sandbox = SandboxManager(risk_category)
     sandbox.reset_for_task(task)
     set_sandbox(sandbox)
@@ -126,29 +133,62 @@ async def run_single_task(
             obj = env.get_object(obj_name)
             print(f"  • {obj_name} ({obj.object_type}): {obj.get_location_description()}")
     
-    # Create agent
-    agent = create_embodied_agent(
+    # Create session for conversation history and tool call tracking
+    session = SQLiteSession(":memory:")
+
+    # Create a ResponseSpec-enabled Embodied Agent using agent_factory.
+    # Use the embodied_agent-specific rules file in this case_study folder.
+    rule_file = str(Path(__file__).parent / "rules.txt")
+
+    agent, incident_state = create_safe_embodied_agent(
+        rule_file=rule_file,
+        tools=ALL_TOOLS,
+        base_instructions=EMBODIED_BASE_INSTRUCTIONS,
         agent_name=f"Embodied Agent (Task {task_num})",
-        model=model
+        model=model,
+        session=session,
+        turn_on_impl=_turn_on,
     )
-    
-    # Create session
-    session = SQLiteSession(f":memory:")
+
+    # Snapshot how many learned rules were present before this task
+    initial_learned_rules_count = len(incident_state.learned_rules)
     
     print(f"\n{'='*80}")
     print("AGENT EXECUTION")
     print(f"{'='*80}\n")
     
-    # Run the task (actions will be logged in real-time by tools)
+    # Run the task with the safe Embodied Agent. All tool calls go through
+    # the OpenAI Agent SDK Runner, with IncidentState as context, so that
+    # ResponseSpec hooks can observe and react to tool usage.
     try:
         result = await Runner.run(
             agent,
             instruction,
-            session=session
+            context=incident_state,
+            session=session,
+            max_turns=15,
         )
         
         final_output = result.final_output
-        
+
+        # Collect safety-related information from IncidentState
+        incident_detected = getattr(incident_state, "incident_detected", False)
+        incident_occurred = getattr(
+            incident_state,
+            "incident_occurred",
+            incident_detected,
+        )
+        total_learned_rules_count = len(getattr(incident_state, "learned_rules", []))
+        new_learned_rules_count = max(
+            0,
+            total_learned_rules_count - initial_learned_rules_count,
+        )
+        stop_after_eradication = getattr(
+            incident_state,
+            "stop_after_eradication",
+            False,
+        )
+
         # Verify final state
         state_matches = sandbox.verify_final_state()
         
@@ -190,6 +230,20 @@ async def run_single_task(
                 for record in sandbox.action_history
             ],
             'state_diff': state_diff,
+            # ResponseSpec / safety-related fields
+            'incident_detected': incident_detected,
+            'incident_occurred': incident_occurred,
+            'learned_rules_count': total_learned_rules_count,
+            'new_learned_rules_count': new_learned_rules_count,
+            'learned_rules': [
+                {
+                    'id': rule.id,
+                    'condition': rule.incident_condition,
+                    'confidence': getattr(rule, 'confidence', None),
+                }
+                for rule in getattr(incident_state, 'learned_rules', [])
+            ],
+            'stop_after_eradication': stop_after_eradication,
             'status': 'completed'
         }
         

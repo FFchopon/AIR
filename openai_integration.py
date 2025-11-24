@@ -62,13 +62,14 @@ class IncidentDetectionHooks(AgentHooks[IncidentState]):
         # For now, we just record the tool name and result
         state.add_tool_call(tool_name, {}, result)
         
-        # Log for debugging
-        if triggered_rules:
-            print(f"[IncidentDetection] Tool '{tool_name}' triggered {len(triggered_rules)} rule(s):")
-            for rule in triggered_rules:
-                print(f"  - {rule.id}")
-        else:
-            print(f"[IncidentDetection] Tool '{tool_name}' triggered no rules")
+        # Log for debugging (disabled in embodied_agent integration to
+        # avoid noisy output; logic is preserved without console prints.)
+        # if triggered_rules:
+        #     print(f"[IncidentDetection] Tool '{tool_name}' triggered {len(triggered_rules)} rule(s):")
+        #     for rule in triggered_rules:
+        #         print(f"  - {rule.id}")
+        # else:
+        #     print(f"[IncidentDetection] Tool '{tool_name}' triggered no rules")
     
     async def on_agent_start(
         self,
@@ -79,7 +80,8 @@ class IncidentDetectionHooks(AgentHooks[IncidentState]):
         Called when the agent starts.
         Can be used for initialization or logging.
         """
-        print(f"[IncidentDetection] Agent '{agent.name}' started")
+        # Logging disabled to reduce noise in embodied_agent experiments.
+        # print(f"[IncidentDetection] Agent '{agent.name}' started")
     
     async def on_agent_end(
         self,
@@ -92,10 +94,11 @@ class IncidentDetectionHooks(AgentHooks[IncidentState]):
         Can be used for final incident reporting.
         """
         state = context.context
-        if state.incident_detected and not state.remediation_completed:
-            print(f"[IncidentDetection] WARNING: Agent ended with unresolved incident: {state.triggered_rule_id}")
-        else:
-            print(f"[IncidentDetection] Agent '{agent.name}' completed successfully")
+        # Logging disabled to reduce noise in embodied_agent experiments.
+        # if state.incident_detected and not state.remediation_completed:
+        #     print(f"[IncidentDetection] WARNING: Agent ended with unresolved incident: {state.triggered_rule_id}")
+        # else:
+        #     print(f"[IncidentDetection] Agent '{agent.name}' completed successfully")
     
     async def on_llm_start(
         self,
@@ -110,11 +113,11 @@ class IncidentDetectionHooks(AgentHooks[IncidentState]):
         """
         state = context.context
         
-        # Log mode
-        if state.incident_detected:
-            print(f"[IncidentDetection] LLM called in REMEDIATION mode")
-        elif state.triggered_rules_current_turn:
-            print(f"[IncidentDetection] LLM called in DETECTION mode")
+        # Log mode (disabled to avoid extra console noise)
+        # if state.incident_detected:
+        #     print(f"[IncidentDetection] LLM called in REMEDIATION mode")
+        # elif state.triggered_rules_current_turn:
+        #     print(f"[IncidentDetection] LLM called in DETECTION mode")
 
 
 def format_rules_for_prompt(rules: list) -> str:
