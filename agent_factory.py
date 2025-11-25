@@ -213,7 +213,27 @@ def create_safe_embodied_agent(
     model: str = "gpt-4o-mini",
     llm_client=None,
     session=None,
+    # Optional raw implementations of embodied tools. When provided,
+    # they will be wrapped with dual-layer checking and used to
+    # replace the corresponding Tool objects in ``tools``.
     turn_on_impl: Optional[Callable] = None,
+    find_impl: Optional[Callable] = None,
+    pick_impl: Optional[Callable] = None,
+    open_receptacle_impl: Optional[Callable] = None,
+    close_receptacle_impl: Optional[Callable] = None,
+    turn_off_impl: Optional[Callable] = None,
+    break_object_impl: Optional[Callable] = None,
+    slice_object_impl: Optional[Callable] = None,
+    cook_impl: Optional[Callable] = None,
+    dirty_impl: Optional[Callable] = None,
+    clean_impl: Optional[Callable] = None,
+    # Multi-arg / context-dependent embodied tools
+    put_impl: Optional[Callable] = None,
+    drop_impl: Optional[Callable] = None,
+    throw_impl: Optional[Callable] = None,
+    fillLiquid_impl: Optional[Callable] = None,
+    pour_impl: Optional[Callable] = None,
+    emptyLiquid_impl: Optional[Callable] = None,
 ) -> tuple[Agent[IncidentState], IncidentState]:
     """Create a safe embodied agent using existing Tool objects.
 
@@ -264,29 +284,65 @@ def create_safe_embodied_agent(
 """
 
     # Combine ResponseSpec safety tools with the provided embodied tools.
-    # If a raw implementation of turn_on is provided, wrap it with dual-layer
-    # checking and replace the original turn_on Tool in the tool list.
+    # For any raw implementation provided, wrap it with dual-layer checking
+    # and replace the corresponding Tool in the list.
     all_tools: List[Tool] = [
         mark_remediation_complete,
         get_incident_status,
     ]
 
+    impls_by_name: dict[str, Callable] = {}
     if turn_on_impl is not None:
-        print("[create_safe_embodied_agent] Wrapping 'turn_on' with dual-layer checks...")
-        safe_turn_on_tool = create_safe_tool_with_eradication(
-            turn_on_impl,
+        impls_by_name["turn_on"] = turn_on_impl
+    if find_impl is not None:
+        impls_by_name["find"] = find_impl
+    if pick_impl is not None:
+        impls_by_name["pick"] = pick_impl
+    if open_receptacle_impl is not None:
+        impls_by_name["open_receptacle"] = open_receptacle_impl
+    if close_receptacle_impl is not None:
+        impls_by_name["close_receptacle"] = close_receptacle_impl
+    if turn_off_impl is not None:
+        impls_by_name["turn_off"] = turn_off_impl
+    if break_object_impl is not None:
+        impls_by_name["break_object"] = break_object_impl
+    if slice_object_impl is not None:
+        impls_by_name["slice_object"] = slice_object_impl
+    if cook_impl is not None:
+        impls_by_name["cook"] = cook_impl
+    if dirty_impl is not None:
+        impls_by_name["dirty"] = dirty_impl
+    if clean_impl is not None:
+        impls_by_name["clean"] = clean_impl
+    if put_impl is not None:
+        impls_by_name["put"] = put_impl
+    if drop_impl is not None:
+        impls_by_name["drop"] = drop_impl
+    if throw_impl is not None:
+        impls_by_name["throw"] = throw_impl
+    if fillLiquid_impl is not None:
+        impls_by_name["fillLiquid"] = fillLiquid_impl
+    if pour_impl is not None:
+        impls_by_name["pour"] = pour_impl
+    if emptyLiquid_impl is not None:
+        impls_by_name["emptyLiquid"] = emptyLiquid_impl
+
+    # Pre-create wrapped tools for any provided implementations
+    wrapped_by_name: dict[str, Tool] = {}
+    for name, impl in impls_by_name.items():
+        print(f"[create_safe_embodied_agent] Wrapping '{name}' with dual-layer checks...")
+        wrapped_by_name[name] = create_safe_tool_with_eradication(
+            impl,
             rules,
             state,
         )
-        # Rebuild tool list, replacing any existing 'turn_on' Tool
-        for t in tools:
-            if isinstance(t, Tool) and t.name == "turn_on":
-                all_tools.append(safe_turn_on_tool)
-            else:
-                all_tools.append(t)
-    else:
-        # Fallback: no special wrapping, use tools as-is
-        all_tools.extend(tools)
+
+    # Rebuild tool list, replacing any Tool whose name has a wrapped impl
+    for t in tools:
+        if isinstance(t, Tool) and t.name in wrapped_by_name:
+            all_tools.append(wrapped_by_name[t.name])
+        else:
+            all_tools.append(t)
 
     agent = Agent[IncidentState](
         name=agent_name,

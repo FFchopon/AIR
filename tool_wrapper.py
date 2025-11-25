@@ -71,23 +71,45 @@ def create_safe_tool_with_eradication(
     params = sig.parameters
     
     # Create wrapper function that matches the original signature
-    # We need to explicitly define parameters to avoid **kwargs in schema
-    if len(params) == 1 and 'code' in params:
+    # We need to explicitly define parameters (no **kwargs in schema).
+    if len(params) == 0:
+        # Tools like _drop() or _throw() with no parameters
+        async def safe_tool_impl(ctx: RunContextWrapper[IncidentState]) -> str:
+            kwargs: dict = {}
+            return await _execute_with_checks(ctx, kwargs)
+
+    elif len(params) == 1 and 'code' in params:
         # Special case for python_repl(code: str)
         async def safe_tool_impl(ctx: RunContextWrapper[IncidentState], code: str) -> str:
             kwargs = {'code': code}
             return await _execute_with_checks(ctx, kwargs)
-    elif len(params) == 1 and 'object_name' in params:
-        # Special case for embodied_agent-style tools like turn_on(object_name: str)
-        async def safe_tool_impl(ctx: RunContextWrapper[IncidentState], object_name: str) -> str:
-            kwargs = {'object_name': object_name}
+
+    elif len(params) == 1:
+        # General single-argument tools (e.g., object_name, receptacle_name,
+        # container_name, target_name, etc.). This covers most embodied
+        # tools like _turn_on(object_name), _find(object_name), _dirty(object_name),
+        # _emptyLiquid(container_name), _put(receptacle_name), _pour(target_name).
+        (param_name, _) = next(iter(params.items()))
+
+        async def safe_tool_impl(ctx: RunContextWrapper[IncidentState], arg: str) -> str:
+            kwargs = {param_name: arg}
             return await _execute_with_checks(ctx, kwargs)
+
+    elif len(params) == 2 and set(params.keys()) == {"container_name", "liquid_type"}:
+        # Special case for fillLiquid(container_name: str, liquid_type: str)
+        async def safe_tool_impl(
+            ctx: RunContextWrapper[IncidentState],
+            container_name: str,
+            liquid_type: str,
+        ) -> str:
+            kwargs = {"container_name": container_name, "liquid_type": liquid_type}
+            return await _execute_with_checks(ctx, kwargs)
+
     else:
-        # Generic case - this might still have schema issues
-        # For now, we'll raise an error for unsupported signatures
+        # Generic case - still unsupported
         raise NotImplementedError(
-            f"Tool wrapper currently only supports single 'code: str' or 'object_name: str' parameter. "
-            f"Tool {tool_name} has parameters: {list(params.keys())}"
+            f"Tool wrapper does not yet support signature for {tool_name}. "
+            f"Parameters: {list(params.keys())}"
         )
     
     # The actual implementation

@@ -180,17 +180,53 @@ class EnvironmentState:
     scene_name: str = "Unknown"
     agent_holding: Optional[str] = None  # Name of object currently held
     
+    def _resolve_name(self, name: str) -> Optional[str]:
+        """Resolve a possibly case-variant name to the canonical key.
+
+        This keeps ``self.objects`` keys canonical (e.g., "Fork"), while
+        allowing tools to pass in variants like "fork".
+        """
+
+        if name in self.objects:
+            return name
+        lower = name.lower()
+        for key in self.objects.keys():
+            if key.lower() == lower:
+                return key
+        return None
+
     def add_object(self, name: str, obj_state: ObjectState):
         """Add an object to the environment."""
         self.objects[name] = obj_state
     
     def get_object(self, name: str) -> Optional[ObjectState]:
-        """Get object state by name."""
-        return self.objects.get(name)
+        """Get object state by name.
+
+        The primary key in ``self.objects`` uses canonical names like
+        "Fork", "Microwave". However, LLMs may sometimes emit variants
+        such as "fork" or "microwave". To make tool usage more robust,
+        this lookup is case-insensitive while preserving the fast exact
+        match path.
+        """
+
+        # Fast path: exact match
+        obj = self.objects.get(name)
+        if obj is not None:
+            return obj
+
+        # Fallback: case-insensitive match
+        lower = name.lower()
+        for key, value in self.objects.items():
+            if key.lower() == lower:
+                return value
+        return None
     
     def has_object(self, name: str) -> bool:
-        """Check if object exists in environment."""
-        return name in self.objects
+        """Check if object exists in environment (case-insensitive)."""
+        if name in self.objects:
+            return True
+        lower = name.lower()
+        return any(key.lower() == lower for key in self.objects.keys())
     
     def update_object(self, name: str, **kwargs):
         """
@@ -200,16 +236,18 @@ class EnvironmentState:
             name: Object name
             **kwargs: Properties to update
         """
-        if name in self.objects:
+        canonical = self._resolve_name(name)
+        if canonical is not None:
             for k, v in kwargs.items():
-                if hasattr(self.objects[name], k):
-                    setattr(self.objects[name], k, v)
+                if hasattr(self.objects[canonical], k):
+                    setattr(self.objects[canonical], k, v)
     
     def remove_object(self, name: str):
         """Remove an object from the environment (e.g., after throw/break)."""
-        if name in self.objects:
-            del self.objects[name]
-            if self.agent_holding == name:
+        canonical = self._resolve_name(name)
+        if canonical is not None and canonical in self.objects:
+            del self.objects[canonical]
+            if self.agent_holding == canonical:
                 self.agent_holding = None
     
     def pick_object(self, name: str) -> bool:
@@ -230,7 +268,8 @@ class EnvironmentState:
         obj.is_held_by_agent = True
         obj.parent_receptacles.clear()
         obj.location_type = LocationType.HELD_BY_AGENT.value
-        self.agent_holding = name
+        canonical = self._resolve_name(name) or name
+        self.agent_holding = canonical
         return True
     
     def drop_object(self, name: str, location: str = "floor"):
@@ -269,7 +308,8 @@ class EnvironmentState:
         obj.is_held_by_agent = False
         obj.location_type = LocationType.IN_CONTAINER.value
         
-        if self.agent_holding == object_name:
+        canonical_object = self._resolve_name(object_name) or object_name
+        if self.agent_holding == canonical_object:
             self.agent_holding = None
         
         return True

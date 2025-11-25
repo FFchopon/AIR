@@ -62,6 +62,42 @@ def _log_action(action_name: str, args: dict, result: str, success: bool):
 # 17 Action Tools (as function_tool decorators)
 # ============================================================================
 
+def _find(object_name: str) -> str:
+    global _last_found_object
+
+    env = get_env()
+    obj = env.get_object(object_name)
+
+    if not obj:
+        result = f"Object '{object_name}' not found in environment."
+        _log_action("find", {"object": object_name}, result, False)
+        return result
+
+    # Record as last found object (for context-dependent actions)
+    _last_found_object = object_name
+
+    # Build detailed state description
+    state_parts = [f"Found {object_name} ({obj.object_type})"]
+    state_parts.append(f"Location: {obj.get_location_description()}")
+
+    if obj.is_toggled:
+        state_parts.append("State: ON")
+    if obj.is_open:
+        state_parts.append("State: OPEN")
+    if obj.is_dirty:
+        state_parts.append("State: DIRTY")
+    if obj.is_broken:
+        state_parts.append("State: BROKEN")
+
+    liquid_desc = obj.get_liquid_description()
+    if liquid_desc != "no liquid":
+        state_parts.append(f"Liquid: {liquid_desc}")
+
+    result = "\n".join(state_parts)
+    _log_action("find", {"object": object_name}, result, True)
+    return result
+
+
 @function_tool
 def find(object_name: str) -> str:
     """
@@ -75,38 +111,31 @@ def find(object_name: str) -> str:
     Returns:
         Description of the object's current state and location
     """
-    global _last_found_object
-    
+    return _find(object_name)
+
+
+def _pick(object_name: str) -> str:
     env = get_env()
-    obj = env.get_object(object_name)
-    
-    if not obj:
-        result = f"Object '{object_name}' not found in environment."
-        _log_action("find", {"object": object_name}, result, False)
+
+    if env.agent_holding:
+        result = f"Cannot pick {object_name}: already holding {env.agent_holding}"
+        _log_action("pick", {"object": object_name}, result, False)
         return result
-    
-    # Record as last found object (for context-dependent actions)
-    _last_found_object = object_name
-    
-    # Build detailed state description
-    state_parts = [f"Found {object_name} ({obj.object_type})"]
-    state_parts.append(f"Location: {obj.get_location_description()}")
-    
-    if obj.is_toggled:
-        state_parts.append("State: ON")
-    if obj.is_open:
-        state_parts.append("State: OPEN")
-    if obj.is_dirty:
-        state_parts.append("State: DIRTY")
-    if obj.is_broken:
-        state_parts.append("State: BROKEN")
-    
-    liquid_desc = obj.get_liquid_description()
-    if liquid_desc != "no liquid":
-        state_parts.append(f"Liquid: {liquid_desc}")
-    
-    result = "\n".join(state_parts)
-    _log_action("find", {"object": object_name}, result, True)
+
+    obj = env.get_object(object_name)
+    if not obj:
+        result = f"Object '{object_name}' not found"
+        _log_action("pick", {"object": object_name}, result, False)
+        return result
+
+    success = env.pick_object(object_name)
+    if success:
+        result = f"Picked up {object_name}"
+        _log_action("pick", {"object": object_name}, result, True)
+    else:
+        result = f"Failed to pick up {object_name}"
+        _log_action("pick", {"object": object_name}, result, False)
+
     return result
 
 
@@ -122,27 +151,40 @@ def pick(object_name: str) -> str:
     Returns:
         Result message indicating success or failure
     """
+    return _pick(object_name)
+
+
+def _put(receptacle_name: str) -> str:
     env = get_env()
-    
-    if env.agent_holding:
-        result = f"Cannot pick {object_name}: already holding {env.agent_holding}"
-        _log_action("pick", {"object": object_name}, result, False)
+
+    if not env.agent_holding:
+        result = "Not holding any object to put"
+        _log_action("put", {"receptacle": receptacle_name}, result, False)
         return result
-    
-    obj = env.get_object(object_name)
-    if not obj:
-        result = f"Object '{object_name}' not found"
-        _log_action("pick", {"object": object_name}, result, False)
+
+    held_obj_name = env.agent_holding
+    receptacle = env.get_object(receptacle_name)
+
+    if not receptacle:
+        result = f"Receptacle '{receptacle_name}' not found"
+        _log_action("put", {"receptacle": receptacle_name}, result, False)
         return result
-    
-    success = env.pick_object(object_name)
+
+    # Check if receptacle needs to be open
+    container_types = ["Microwave", "Fridge", "Cabinet", "Drawer"]
+    if receptacle.object_type in container_types and not receptacle.is_open:
+        result = f"{receptacle_name} is closed. Open it first."
+        _log_action("put", {"object": held_obj_name, "receptacle": receptacle_name}, result, False)
+        return result
+
+    success = env.put_object(held_obj_name, receptacle_name)
     if success:
-        result = f"Picked up {object_name}"
-        _log_action("pick", {"object": object_name}, result, True)
+        result = f"Placed {held_obj_name} in/on {receptacle_name}"
+        _log_action("put", {"object": held_obj_name, "receptacle": receptacle_name}, result, True)
     else:
-        result = f"Failed to pick up {object_name}"
-        _log_action("pick", {"object": object_name}, result, False)
-    
+        result = f"Failed to place {held_obj_name} in/on {receptacle_name}"
+        _log_action("put", {"object": held_obj_name, "receptacle": receptacle_name}, result, False)
+
     return result
 
 
@@ -159,36 +201,26 @@ def put(receptacle_name: str) -> str:
     Returns:
         Result message indicating success or failure
     """
+    return _put(receptacle_name)
+
+
+def _open_receptacle(object_name: str) -> str:
     env = get_env()
-    
-    if not env.agent_holding:
-        result = "Not holding any object to put"
-        _log_action("put", {"receptacle": receptacle_name}, result, False)
+    obj = env.get_object(object_name)
+
+    if not obj:
+        result = f"Object '{object_name}' not found"
+        _log_action("open", {"object": object_name}, result, False)
         return result
-    
-    held_obj_name = env.agent_holding
-    receptacle = env.get_object(receptacle_name)
-    
-    if not receptacle:
-        result = f"Receptacle '{receptacle_name}' not found"
-        _log_action("put", {"receptacle": receptacle_name}, result, False)
+
+    if obj.is_open:
+        result = f"{object_name} is already open"
+        _log_action("open", {"object": object_name}, result, True)
         return result
-    
-    # Check if receptacle needs to be open
-    container_types = ["Microwave", "Fridge", "Cabinet", "Drawer"]
-    if receptacle.object_type in container_types and not receptacle.is_open:
-        result = f"{receptacle_name} is closed. Open it first."
-        _log_action("put", {"object": held_obj_name, "receptacle": receptacle_name}, result, False)
-        return result
-    
-    success = env.put_object(held_obj_name, receptacle_name)
-    if success:
-        result = f"Placed {held_obj_name} in/on {receptacle_name}"
-        _log_action("put", {"object": held_obj_name, "receptacle": receptacle_name}, result, True)
-    else:
-        result = f"Failed to place {held_obj_name} in/on {receptacle_name}"
-        _log_action("put", {"object": held_obj_name, "receptacle": receptacle_name}, result, False)
-    
+
+    env.update_object(object_name, is_open=True)
+    result = f"Opened {object_name}"
+    _log_action("open", {"object": object_name}, result, True)
     return result
 
 
@@ -204,22 +236,26 @@ def open_receptacle(object_name: str) -> str:
     Returns:
         Result message indicating success or failure
     """
+    return _open_receptacle(object_name)
+
+
+def _close_receptacle(object_name: str) -> str:
     env = get_env()
     obj = env.get_object(object_name)
-    
+
     if not obj:
         result = f"Object '{object_name}' not found"
-        _log_action("open", {"object": object_name}, result, False)
+        _log_action("close", {"object": object_name}, result, False)
         return result
-    
-    if obj.is_open:
-        result = f"{object_name} is already open"
-        _log_action("open", {"object": object_name}, result, True)
+
+    if not obj.is_open:
+        result = f"{object_name} is already closed"
+        _log_action("close", {"object": object_name}, result, True)
         return result
-    
-    env.update_object(object_name, is_open=True)
-    result = f"Opened {object_name}"
-    _log_action("open", {"object": object_name}, result, True)
+
+    env.update_object(object_name, is_open=False)
+    result = f"Closed {object_name}"
+    _log_action("close", {"object": object_name}, result, True)
     return result
 
 
@@ -234,23 +270,7 @@ def close_receptacle(object_name: str) -> str:
     Returns:
         Result message indicating success or failure
     """
-    env = get_env()
-    obj = env.get_object(object_name)
-    
-    if not obj:
-        result = f"Object '{object_name}' not found"
-        _log_action("close", {"object": object_name}, result, False)
-        return result
-    
-    if not obj.is_open:
-        result = f"{object_name} is already closed"
-        _log_action("close", {"object": object_name}, result, True)
-        return result
-    
-    env.update_object(object_name, is_open=False)
-    result = f"Closed {object_name}"
-    _log_action("close", {"object": object_name}, result, True)
-    return result
+    return _close_receptacle(object_name)
 
 
 def _turn_on(object_name: str) -> str:
@@ -295,22 +315,56 @@ def turn_off(object_name: str) -> str:
     Returns:
         Result message indicating success or failure
     """
+    return _turn_off(object_name)
+
+
+def _turn_off(object_name: str) -> str:
     env = get_env()
     obj = env.get_object(object_name)
-    
+
     if not obj:
         result = f"Object '{object_name}' not found"
         _log_action("turn_off", {"object": object_name}, result, False)
         return result
-    
+
     if not obj.is_toggled:
         result = f"{object_name} is already off"
         _log_action("turn_off", {"object": object_name}, result, True)
         return result
-    
+
     env.update_object(object_name, is_toggled=False)
     result = f"Turned off {object_name}"
     _log_action("turn_off", {"object": object_name}, result, True)
+    return result
+
+
+def _drop() -> str:
+    global _last_found_object
+
+    env = get_env()
+
+    if not env.agent_holding:
+        result = "Not holding any object to drop"
+        _log_action("drop", {}, result, False)
+        return result
+
+    obj_name = env.agent_holding
+
+    # Check if last found object is a receptacle
+    if _last_found_object and _last_found_object != obj_name:
+        target = env.get_object(_last_found_object)
+        if target:
+            # Try to put into the last found receptacle
+            success = env.put_object(obj_name, _last_found_object)
+            if success:
+                result = f"Dropped {obj_name} into/onto {_last_found_object}"
+                _log_action("drop", {"object": obj_name, "target": _last_found_object}, result, True)
+                return result
+
+    # Default: drop on floor
+    env.drop_object(obj_name)
+    result = f"Dropped {obj_name} on the floor"
+    _log_action("drop", {"object": obj_name}, result, True)
     return result
 
 
@@ -325,32 +379,21 @@ def drop() -> str:
     Returns:
         Result message indicating success or failure
     """
-    global _last_found_object
-    
+    return _drop()
+
+
+def _throw() -> str:
     env = get_env()
-    
+
     if not env.agent_holding:
-        result = "Not holding any object to drop"
-        _log_action("drop", {}, result, False)
+        result = "Not holding any object to throw"
+        _log_action("throw", {}, result, False)
         return result
-    
+
     obj_name = env.agent_holding
-    
-    # Check if last found object is a receptacle
-    if _last_found_object and _last_found_object != obj_name:
-        target = env.get_object(_last_found_object)
-        if target:
-            # Try to put into the last found receptacle
-            success = env.put_object(obj_name, _last_found_object)
-            if success:
-                result = f"Dropped {obj_name} into/onto {_last_found_object}"
-                _log_action("drop", {"object": obj_name, "target": _last_found_object}, result, True)
-                return result
-    
-    # Default: drop on floor
-    env.drop_object(obj_name)
-    result = f"Dropped {obj_name} on the floor"
-    _log_action("drop", {"object": obj_name}, result, True)
+    env.remove_object(obj_name)
+    result = f"Threw {obj_name} (removed from environment)"
+    _log_action("throw", {"object": obj_name}, result, True)
     return result
 
 
@@ -363,18 +406,7 @@ def throw() -> str:
     Returns:
         Result message indicating success or failure
     """
-    env = get_env()
-    
-    if not env.agent_holding:
-        result = "Not holding any object to throw"
-        _log_action("throw", {}, result, False)
-        return result
-    
-    obj_name = env.agent_holding
-    env.remove_object(obj_name)
-    result = f"Threw {obj_name} (removed from environment)"
-    _log_action("throw", {"object": obj_name}, result, True)
-    return result
+    return _throw()
 
 
 @function_tool
@@ -388,19 +420,23 @@ def break_object(object_name: str) -> str:
     Returns:
         Result message indicating success or failure
     """
+    return _break_object(object_name)
+
+
+def _break_object(object_name: str) -> str:
     env = get_env()
     obj = env.get_object(object_name)
-    
+
     if not obj:
         result = f"Object '{object_name}' not found"
         _log_action("break", {"object": object_name}, result, False)
         return result
-    
+
     if obj.is_broken:
         result = f"{object_name} is already broken"
         _log_action("break", {"object": object_name}, result, True)
         return result
-    
+
     env.update_object(object_name, is_broken=True)
     result = f"Broke {object_name}"
     _log_action("break", {"object": object_name}, result, True)
@@ -418,22 +454,41 @@ def slice_object(object_name: str) -> str:
     Returns:
         Result message indicating success or failure
     """
+    return _slice_object(object_name)
+
+
+def _slice_object(object_name: str) -> str:
     env = get_env()
     obj = env.get_object(object_name)
-    
+
     if not obj:
         result = f"Object '{object_name}' not found"
         _log_action("slice", {"object": object_name}, result, False)
         return result
-    
+
     if obj.is_sliced:
         result = f"{object_name} is already sliced"
         _log_action("slice", {"object": object_name}, result, True)
         return result
-    
+
     env.update_object(object_name, is_sliced=True)
     result = f"Sliced {object_name}"
     _log_action("slice", {"object": object_name}, result, True)
+    return result
+
+
+def _fillLiquid(container_name: str, liquid_type: str) -> str:
+    env = get_env()
+
+    success = env.fill_liquid(container_name, liquid_type)
+
+    if success:
+        result = f"Filled {container_name} with {liquid_type}"
+        _log_action("fillLiquid", {"container": container_name, "liquid": liquid_type}, result, True)
+    else:
+        result = f"Failed to fill {container_name} with {liquid_type}"
+        _log_action("fillLiquid", {"container": container_name, "liquid": liquid_type}, result, False)
+
     return result
 
 
@@ -450,17 +505,46 @@ def fillLiquid(container_name: str, liquid_type: str) -> str:
     Returns:
         Result message indicating success or failure
     """
+    return _fillLiquid(container_name, liquid_type)
+
+
+def _pour(target_name: str | None = None) -> str:
+    global _last_found_object
+
     env = get_env()
-    
-    success = env.fill_liquid(container_name, liquid_type)
-    
+
+    if not env.agent_holding:
+        result = "Not holding any container to pour from"
+        _log_action("pour", {}, result, False)
+        return result
+
+    source_name = env.agent_holding
+    source = env.get_object(source_name)
+
+    if not source or not source.is_filled_with_liquid:
+        result = f"{source_name} has no liquid to pour"
+        _log_action("pour", {"source": source_name}, result, False)
+        return result
+
+    # Use last found object if no target specified
+    if target_name is None:
+        if _last_found_object and _last_found_object != source_name:
+            target_name = _last_found_object
+        else:
+            result = "No target specified and no recent find() to use as target"
+            _log_action("pour", {"source": source_name}, result, False)
+            return result
+
+    liquid_type = source.liquid_content
+    success = env.pour_liquid(source_name, target_name)
+
     if success:
-        result = f"Filled {container_name} with {liquid_type}"
-        _log_action("fillLiquid", {"container": container_name, "liquid": liquid_type}, result, True)
+        result = f"Poured {liquid_type} from {source_name} onto/into {target_name}"
+        _log_action("pour", {"source": source_name, "target": target_name, "liquid": liquid_type}, result, True)
     else:
-        result = f"Failed to fill {container_name} with {liquid_type}"
-        _log_action("fillLiquid", {"container": container_name, "liquid": liquid_type}, result, False)
-    
+        result = f"Failed to pour from {source_name} to {target_name}"
+        _log_action("pour", {"source": source_name, "target": target_name}, result, False)
+
     return result
 
 
@@ -477,42 +561,26 @@ def pour(target_name: str = None) -> str:
     Returns:
         Result message indicating success or failure
     """
-    global _last_found_object
-    
+    return _pour(target_name)
+
+
+def _emptyLiquid(container_name: str) -> str:
     env = get_env()
-    
-    if not env.agent_holding:
-        result = "Not holding any container to pour from"
-        _log_action("pour", {}, result, False)
+    obj = env.get_object(container_name)
+
+    if not obj:
+        result = f"Object '{container_name}' not found"
+        _log_action("emptyLiquid", {"container": container_name}, result, False)
         return result
-    
-    source_name = env.agent_holding
-    source = env.get_object(source_name)
-    
-    if not source or not source.is_filled_with_liquid:
-        result = f"{source_name} has no liquid to pour"
-        _log_action("pour", {"source": source_name}, result, False)
+
+    if not obj.is_filled_with_liquid:
+        result = f"{container_name} is already empty"
+        _log_action("emptyLiquid", {"container": container_name}, result, True)
         return result
-    
-    # Use last found object if no target specified
-    if target_name is None:
-        if _last_found_object and _last_found_object != source_name:
-            target_name = _last_found_object
-        else:
-            result = "No target specified and no recent find() to use as target"
-            _log_action("pour", {"source": source_name}, result, False)
-            return result
-    
-    liquid_type = source.liquid_content
-    success = env.pour_liquid(source_name, target_name)
-    
-    if success:
-        result = f"Poured {liquid_type} from {source_name} onto/into {target_name}"
-        _log_action("pour", {"source": source_name, "target": target_name, "liquid": liquid_type}, result, True)
-    else:
-        result = f"Failed to pour from {source_name} to {target_name}"
-        _log_action("pour", {"source": source_name, "target": target_name}, result, False)
-    
+
+    env.update_object(container_name, is_filled_with_liquid=False, liquid_content=None)
+    result = f"Emptied {container_name}"
+    _log_action("emptyLiquid", {"container": container_name}, result, True)
     return result
 
 
@@ -527,23 +595,7 @@ def emptyLiquid(container_name: str) -> str:
     Returns:
         Result message indicating success or failure
     """
-    env = get_env()
-    obj = env.get_object(container_name)
-    
-    if not obj:
-        result = f"Object '{container_name}' not found"
-        _log_action("emptyLiquid", {"container": container_name}, result, False)
-        return result
-    
-    if not obj.is_filled_with_liquid:
-        result = f"{container_name} is already empty"
-        _log_action("emptyLiquid", {"container": container_name}, result, True)
-        return result
-    
-    env.update_object(container_name, is_filled_with_liquid=False, liquid_content=None)
-    result = f"Emptied {container_name}"
-    _log_action("emptyLiquid", {"container": container_name}, result, True)
-    return result
+    return _emptyLiquid(container_name)
 
 
 @function_tool
@@ -557,14 +609,18 @@ def cook(object_name: str) -> str:
     Returns:
         Result message indicating success or failure
     """
+    return _cook(object_name)
+
+
+def _cook(object_name: str) -> str:
     env = get_env()
     obj = env.get_object(object_name)
-    
+
     if not obj:
         result = f"Object '{object_name}' not found"
         _log_action("cook", {"object": object_name}, result, False)
         return result
-    
+
     result = f"Cooked {object_name}"
     _log_action("cook", {"object": object_name}, result, True)
     return result
@@ -581,19 +637,23 @@ def dirty(object_name: str) -> str:
     Returns:
         Result message indicating success or failure
     """
+    return _dirty(object_name)
+
+
+def _dirty(object_name: str) -> str:
     env = get_env()
     obj = env.get_object(object_name)
-    
+
     if not obj:
         result = f"Object '{object_name}' not found"
         _log_action("dirty", {"object": object_name}, result, False)
         return result
-    
+
     if obj.is_dirty:
         result = f"{object_name} is already dirty"
         _log_action("dirty", {"object": object_name}, result, True)
         return result
-    
+
     env.update_object(object_name, is_dirty=True)
     result = f"Made {object_name} dirty"
     _log_action("dirty", {"object": object_name}, result, True)
@@ -611,19 +671,23 @@ def clean(object_name: str) -> str:
     Returns:
         Result message indicating success or failure
     """
+    return _clean(object_name)
+
+
+def _clean(object_name: str) -> str:
     env = get_env()
     obj = env.get_object(object_name)
-    
+
     if not obj:
         result = f"Object '{object_name}' not found"
         _log_action("clean", {"object": object_name}, result, False)
         return result
-    
+
     if not obj.is_dirty:
         result = f"{object_name} is already clean"
         _log_action("clean", {"object": object_name}, result, True)
         return result
-    
+
     env.update_object(object_name, is_dirty=False)
     result = f"Cleaned {object_name}"
     _log_action("clean", {"object": object_name}, result, True)

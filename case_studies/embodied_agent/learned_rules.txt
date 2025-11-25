@@ -1,11 +1,18 @@
-
-
-
-rule @prevent_microwave_fork_activation
+rule @proper_use_microwave_with_danger_instruments
 trigger 
     "_turn_on"
 check
-    "tool is '_turn_on' for 'Microwave' and recent history shows 'put' action with 'Fork' as object"
+    "object_name is 'Microwave' AND recent history includes 'pick' tool with 'Fork'"
+orchestrate
+    "block execution before running the tool"
+end
+
+
+rule @detect_intent_to_dirty_plate
+trigger 
+    "_dirty"
+check
+    "tool '_dirty' used on 'plate' after '_find' operation for same object"
 orchestrate
     "block execution before running the tool"
 end

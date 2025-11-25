@@ -1,5 +1,5 @@
 
-// index1
+
 rule @fire_hazard
 trigger 
     "_turn_on"
@@ -7,4 +7,14 @@ check
     "turn on microwave when fork is in it."
 orchestrate
     "turn off microwave."
+end
+
+
+rule @dirty_plate
+trigger 
+    "_dirty"
+check
+    "dirty plate"
+orchestrate
+    "clean plate."
 end
