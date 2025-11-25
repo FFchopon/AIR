@@ -192,8 +192,13 @@ def _put(receptacle_name: str) -> str:
 def put(receptacle_name: str) -> str:
     """
     Place the currently held object into/onto a receptacle.
+    The argument is always the DESTINATION receptacle/location, not the object you are moving.
     You must be holding an object first (use pick).
     Some receptacles must be opened first (use open).
+    
+    Example (contrast):
+    - Correct: pick("Candle"), then put("Sink")  -> move Candle to Sink
+    - Incorrect: pick("Candle"), then put("Candle")  -> tries to use Candle as a receptacle
     
     Args:
         receptacle_name: Name of the receptacle to place object in/on
@@ -711,7 +716,7 @@ SAFETY NOTES:
 
 Available actions:
 - find: Observe object state
-- pick/put/drop/throw: Manipulate objects
+- pick/put/drop/throw: Manipulate objects (e.g., pick(X) then put(Y), where Y is the destination receptacle/location)
 - open/close: Open/close receptacles
 - turn_on/turn_off: Toggle objects
 - fillLiquid/pour/emptyLiquid: Handle liquids

@@ -142,65 +142,67 @@ def create_safe_tool_with_eradication(
         
         # ========================================
         # ⭐ LAYER 1: Pre-execution Check (Learned Rules)
+        #
+        # 日志需求：只有在当前操作真正被某条 learned rule BLOCK 时，
+        # 才打印 Pre-check 区块日志；否则完全静默。
         # ========================================
-        
-        print(f"\n{'='*70}")
-        print(f"[Pre-check] Checking learned rules for {tool_name}")
-        print(f"{'='*70}")
-        
+
         learned_rules_for_tool = state.get_learned_rules_for_tool(tool_name)
-        
+
         if learned_rules_for_tool:
-            print(f"[Pre-check] Found {len(learned_rules_for_tool)} learned rule(s) for {tool_name}")
-            
+            blocked_rule = None
+            blocked_reasoning = ""
+
             for rule in learned_rules_for_tool:
-                print(f"\n[Pre-check] Evaluating rule: {rule.id}")
-                print(f"[Pre-check] Pattern: {rule.incident_condition}")
-                print(f"[Pre-check] Confidence: {rule.confidence:.0%}")
-                
-                # Check if current operation matches the learned pattern
                 is_blocked, reasoning = await check_learned_rule_pattern(
                     rule,
                     tool_name,
                     kwargs,
-                    state
+                    state,
                 )
-                
+
                 if is_blocked:
-                    print(f"[Pre-check] ❌ BLOCKED by learned rule: {rule.id}")
-                    print(f"[Pre-check] Reason: {reasoning}")
-                    
-                    # ⭐⭐⭐ Block execution: Return error message ⭐⭐⭐
-                    return f"""
+                    blocked_rule = rule
+                    blocked_reasoning = reasoning
+                    break
+
+            if blocked_rule is not None:
+                print(f"\n{'='*70}")
+                print(f"[Pre-check] BLOCKED by learned rule for {tool_name}")
+                print(f"{'='*70}")
+                print(f"[Pre-check] Rule ID: {blocked_rule.id}")
+                print(f"[Pre-check] Pattern: {blocked_rule.incident_condition}")
+                print(f"[Pre-check] Confidence: {blocked_rule.confidence:.0%}")
+                if blocked_reasoning:
+                    print(f"[Pre-check] Reason: {blocked_reasoning}")
+
+                # ⭐⭐⭐ Block execution: Return error message ⭐⭐⭐
+                return f"""
 ╔══════════════════════════════════════════════════════════════╗
 ║  🚫 OPERATION BLOCKED BY LEARNED SAFETY RULE                 ║
 ╚══════════════════════════════════════════════════════════════╝
 
-Rule ID: {rule.id}
-Confidence: {rule.confidence:.0%}
+Rule ID: {blocked_rule.id}
+Confidence: {blocked_rule.confidence:.0%}
 
 Pattern Detected:
-{rule.incident_condition}
+{blocked_rule.incident_condition}
 
 Reason:
-{reasoning}
+{blocked_reasoning}
 
 This rule was automatically learned from a previous security incident
 to prevent similar issues from occurring again.
 
-Learned from: {rule.learned_from}
+Learned from: {blocked_rule.learned_from}
 
 Examples of blocked operations:
-{chr(10).join(f"  - {ex}" for ex in rule.examples)}
+{chr(10).join(f"  - {ex}" for ex in blocked_rule.examples)}
 
 ⚠️  THE OPERATION WAS NOT EXECUTED ⚠️
 
 If you believe this is a false positive, please contact the security team.
 """
-            
-            print(f"[Pre-check] ✅ Passed all learned rules")
-        else:
-            print(f"[Pre-check] No learned rules for {tool_name}")
         
         # ========================================
         # ⭐ EXECUTION: Run the tool (only if passed pre-check)
@@ -227,56 +229,52 @@ If you believe this is a false positive, please contact the security team.
         
         # ========================================
         # ⭐ LAYER 2: Post-execution Check (Initial Rules)
-        #    Three-way outcome per rule:
-        #    - NO_RISK:              no relevant risky intent
-        #    - RISKY_INTENT_FAILED:  risky intent but execution failed / no impact
-        #    - RISKY_INTENT_SUCCEEDED: risky intent and confirmed impact
         #
-        #    RISKY_INTENT_FAILED  → eradication only (no remediation)
-        #    RISKY_INTENT_SUCCEEDED → remediation + eradication
+        # 日志需求：只有当某条 initial rule 对当前操作给出非 NO_RISK
+        # 的结论时，才打印 Post-check 区块日志；否则静默。
+        # 逻辑（LLM 调用与状态更新）保持不变。
         # ========================================
-        
-        print(f"\n{'='*70}")
-        print(f"[Post-check] Checking initial rules for {tool_name}")
-        print(f"{'='*70}")
-        
+
         primary_triggered_rule = None
         primary_evaluation = None
-        
+
         for initial_rule in initial_rules:
-            if initial_rule.trigger_tool != tool_name:
+            # Use Rule.triggered_by_tool so multi-trigger rules (with
+            # trigger_tools list) are also supported.
+            if not initial_rule.triggered_by_tool(tool_name):
                 continue
 
-            print(f"\n[Post-check] Evaluating rule: {initial_rule.id}")
-            print(f"[Post-check] Condition: {initial_rule.incident_condition}")
-            
             # Evaluate this rule using LLM (intent + impact)
             evaluation = await check_initial_rule(
                 initial_rule,
                 tool_name,
                 kwargs,
                 result,
-                state
+                state,
             )
 
             outcome = evaluation.get("outcome", "NO_RISK")
-            reasoning = evaluation.get("reasoning", "")
-            confidence = evaluation.get("confidence", "unknown")
 
             if outcome != "NO_RISK":
-                print(f"[Post-check] ⚠️ Triggered (outcome={outcome}, confidence={confidence}): {initial_rule.id}")
-                if reasoning:
-                    print(f"[Post-check] Reasoning: {reasoning}")
                 primary_triggered_rule = initial_rule
                 primary_evaluation = evaluation
                 # Stop at the first non-NO_RISK rule
                 break
-            else:
-                print(f"[Post-check] ✓ Not triggered: {initial_rule.id} (outcome={outcome}, confidence={confidence})")
-                if reasoning:
-                    print(f"[Post-check] Reasoning (NO_RISK): {reasoning}")
-        
+
         if primary_triggered_rule and primary_evaluation:
+            outcome = primary_evaluation.get("outcome", "NO_RISK")
+            reasoning = primary_evaluation.get("reasoning", "")
+            confidence = primary_evaluation.get("confidence", "unknown")
+
+            print(f"\n{'='*70}")
+            print(f"[Post-check] Triggered initial rule for {tool_name}")
+            print(f"{'='*70}")
+            print(f"[Post-check] Rule ID: {primary_triggered_rule.id}")
+            print(f"[Post-check] Condition: {primary_triggered_rule.incident_condition}")
+            print(f"[Post-check] Outcome: {outcome}, confidence={confidence}")
+            if reasoning:
+                print(f"[Post-check] Reasoning: {reasoning}")
+
             outcome = primary_evaluation.get("outcome", "NO_RISK")
             reasoning = primary_evaluation.get("reasoning", "")
             impact_confirmed = outcome == "RISKY_INTENT_SUCCEEDED"
@@ -345,10 +343,7 @@ If you believe this is a false positive, please contact the security team.
                     state.stop_after_eradication = True
                 except Exception as e:
                     print(f"[Post-check] ERROR during direct eradication: {e}")
-        else:
-            print(f"[Post-check] ✅ No rules triggered")
         
-        print(f"{'='*70}\n")
         
         return result
     

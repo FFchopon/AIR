@@ -330,7 +330,7 @@ def create_safe_embodied_agent(
     # Pre-create wrapped tools for any provided implementations
     wrapped_by_name: dict[str, Tool] = {}
     for name, impl in impls_by_name.items():
-        print(f"[create_safe_embodied_agent] Wrapping '{name}' with dual-layer checks...")
+        # print(f"[create_safe_embodied_agent] Wrapping '{name}' with dual-layer checks...")
         wrapped_by_name[name] = create_safe_tool_with_eradication(
             impl,
             rules,

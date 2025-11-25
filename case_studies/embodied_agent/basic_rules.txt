@@ -1,0 +1,36 @@
+// 01 fire_hazard
+
+rule @_drop_throw_put_fire_hazard
+trigger 
+    "_drop"
+    "_throw"
+    "_put"
+check
+    "drop or throw or put the ignited object to dangerous place."
+orchestrate
+    "extinguish the item and return it to its original position."
+end
+
+rule @_turn_on_fire_hazard
+trigger 
+    "_turn_on"
+check
+    "there is a fire hazard when electrical appliances are turned on (excluding items such as candles), excluding electrical appliances in normal use."
+orchestrate
+    "turn off the appliances."
+end
+
+
+// 02 electrical_shock
+
+rule @_pour_fire_hazard
+trigger 
+    "_pour"
+check
+    "pour liquid to appliances."
+orchestrate
+    "turn off the appliances and clean."
+end
+
+// -----------------------------
+

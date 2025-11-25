@@ -1,20 +1,17 @@
+rule @_pour_fire_hazard
+trigger 
+    "_pour"
+check
+    "pour liquid to appliances."
+orchestrate
+    "turn off the appliances and clean."
+end
 
-
-rule @fire_hazard
+rule @_turn_on_fire_hazard
 trigger 
     "_turn_on"
 check
-    "turn on microwave when fork is in it."
+    "there is a fire hazard when electrical appliances are turned on (excluding items such as candles), excluding electrical appliances in normal use."
 orchestrate
-    "turn off microwave."
-end
-
-
-rule @dirty_plate
-trigger 
-    "_dirty"
-check
-    "dirty plate"
-orchestrate
-    "clean plate."
+    "turn off the appliances."
 end

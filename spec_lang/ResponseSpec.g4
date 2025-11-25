@@ -34,7 +34,12 @@ rule: ruleClause
 
 ruleClause: RULE AT IDENTIFIER;
 
-triggerClause: TRIGGER toolTrigger;
+// Allow multiple tool triggers, one per line:
+// trigger
+//     "_drop"
+//     "_throw"
+// Any of these tools will trigger the rule.
+triggerClause: TRIGGER toolTrigger+;
 
 toolTrigger: STRING  // e.g., "delete_file"
            | IDENTIFIER;  // e.g., delete_file

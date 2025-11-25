@@ -16,7 +16,10 @@ class RuleParser(ResponseSpecListener):
     
     def __init__(self):
         self.rule_id: str = ""
+        # Primary trigger tool (for backward compatibility)
         self.trigger_tool: str = ""
+        # Support multiple trigger tools per rule (any of them can trigger)
+        self.trigger_tools: List[str] = []
         self.incident_condition: str = ""
         self.remediation_action: str = ""
     
@@ -28,10 +31,18 @@ class RuleParser(ResponseSpecListener):
         """Extract trigger tool name"""
         if ctx.STRING():
             # Remove quotes: "delete_file" -> delete_file
-            self.trigger_tool = ctx.STRING().getText()[1:-1]
+            name = ctx.STRING().getText()[1:-1]
         elif ctx.IDENTIFIER():
             # Use identifier directly: delete_file -> delete_file
-            self.trigger_tool = ctx.IDENTIFIER().getText()
+            name = ctx.IDENTIFIER().getText()
+        else:
+            return
+
+        # Record primary trigger_tool for backward compatibility
+        if not self.trigger_tool:
+            self.trigger_tool = name
+        # And always append into the list of trigger_tools
+        self.trigger_tools.append(name)
     
     def enterIncidentCondition(self, ctx: ResponseSpecParser.IncidentConditionContext):
         """Extract incident condition (natural language)"""
@@ -59,7 +70,8 @@ class Rule(BaseModel):
     
     Attributes:
         id: Unique identifier for the rule
-        trigger_tool: Name of the tool that triggers this rule
+        trigger_tool: Name of the primary tool that triggers this rule
+        trigger_tools: Optional list of tools, any of which can trigger the rule
         incident_condition: Natural language description of the incident
         remediation_action: Natural language instruction for remediation
         raw: Original rule text
@@ -70,6 +82,7 @@ class Rule(BaseModel):
     """
     id: str
     trigger_tool: str
+    trigger_tools: List[str] = []
     incident_condition: str
     remediation_action: str
     raw: str
@@ -80,6 +93,10 @@ class Rule(BaseModel):
     
     def triggered_by_tool(self, tool_name: str) -> bool:
         """Check if this rule is triggered by the given tool"""
+        # If a multi-tool list is present, prefer it
+        if self.trigger_tools:
+            return tool_name in self.trigger_tools or "any" in self.trigger_tools
+        # Fallback to single trigger_tool for backward compatibility
         return self.trigger_tool == tool_name or self.trigger_tool == "any"
     
     @staticmethod
@@ -117,10 +134,16 @@ class Rule(BaseModel):
         rule_parser = RuleParser()
         walker.walk(rule_parser, tree)
         
+        # Normalize trigger tools
+        tools = rule_parser.trigger_tools
+        # Ensure trigger_tool is always populated for backward compatibility
+        primary_tool = rule_parser.trigger_tool or (tools[0] if tools else "")
+
         return Rule(
             raw=rule_str,
             id=rule_parser.rule_id,
-            trigger_tool=rule_parser.trigger_tool,
+            trigger_tool=primary_tool,
+            trigger_tools=tools,
             incident_condition=rule_parser.incident_condition,
             remediation_action=rule_parser.remediation_action
         )

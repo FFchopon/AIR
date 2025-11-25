@@ -1,4 +1,4 @@
-# Generated from D:/10.4/AgentSpec-master/ResponseSpec/spec_lang/ResponseSpec.g4 by ANTLR 4.13.2
+# Generated from ResponseSpec.g4 by ANTLR 4.13.2
 # encoding: utf-8
 from antlr4 import *
 from io import StringIO
@@ -10,33 +10,34 @@ else:
 
 def serializedATN():
     return [
-        4,1,17,88,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,
+        4,1,17,91,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,
         6,2,7,7,7,2,8,7,8,2,9,7,9,2,10,7,10,1,0,5,0,24,8,0,10,0,12,0,27,
-        9,0,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,2,1,2,1,3,1,3,1,3,
-        1,4,1,4,1,5,1,5,1,5,1,6,1,6,3,6,51,8,6,1,7,1,7,1,7,4,7,56,8,7,11,
-        7,12,7,57,1,7,1,7,1,7,4,7,63,8,7,11,7,12,7,64,1,7,1,7,1,7,1,7,1,
-        7,1,7,3,7,73,8,7,1,8,1,8,1,8,1,9,1,9,3,9,80,8,9,1,10,1,10,4,10,84,
-        8,10,11,10,12,10,85,1,10,0,0,11,0,2,4,6,8,10,12,14,16,18,20,0,1,
-        1,0,16,17,85,0,25,1,0,0,0,2,30,1,0,0,0,4,36,1,0,0,0,6,40,1,0,0,0,
-        8,43,1,0,0,0,10,45,1,0,0,0,12,50,1,0,0,0,14,72,1,0,0,0,16,74,1,0,
-        0,0,18,79,1,0,0,0,20,81,1,0,0,0,22,24,3,2,1,0,23,22,1,0,0,0,24,27,
-        1,0,0,0,25,23,1,0,0,0,25,26,1,0,0,0,26,28,1,0,0,0,27,25,1,0,0,0,
-        28,29,5,0,0,1,29,1,1,0,0,0,30,31,3,4,2,0,31,32,3,6,3,0,32,33,3,10,
-        5,0,33,34,3,16,8,0,34,35,5,5,0,0,35,3,1,0,0,0,36,37,5,1,0,0,37,38,
-        5,6,0,0,38,39,5,16,0,0,39,5,1,0,0,0,40,41,5,2,0,0,41,42,3,8,4,0,
-        42,7,1,0,0,0,43,44,7,0,0,0,44,9,1,0,0,0,45,46,5,3,0,0,46,47,3,12,
-        6,0,47,11,1,0,0,0,48,51,5,17,0,0,49,51,3,14,7,0,50,48,1,0,0,0,50,
-        49,1,0,0,0,51,13,1,0,0,0,52,55,5,17,0,0,53,54,5,9,0,0,54,56,5,17,
-        0,0,55,53,1,0,0,0,56,57,1,0,0,0,57,55,1,0,0,0,57,58,1,0,0,0,58,73,
-        1,0,0,0,59,62,5,17,0,0,60,61,5,10,0,0,61,63,5,17,0,0,62,60,1,0,0,
-        0,63,64,1,0,0,0,64,62,1,0,0,0,64,65,1,0,0,0,65,73,1,0,0,0,66,67,
-        5,8,0,0,67,73,5,17,0,0,68,69,5,11,0,0,69,70,3,14,7,0,70,71,5,12,
-        0,0,71,73,1,0,0,0,72,52,1,0,0,0,72,59,1,0,0,0,72,66,1,0,0,0,72,68,
-        1,0,0,0,73,15,1,0,0,0,74,75,5,4,0,0,75,76,3,18,9,0,76,17,1,0,0,0,
-        77,80,5,17,0,0,78,80,3,20,10,0,79,77,1,0,0,0,79,78,1,0,0,0,80,19,
-        1,0,0,0,81,83,5,17,0,0,82,84,5,17,0,0,83,82,1,0,0,0,84,85,1,0,0,
-        0,85,83,1,0,0,0,85,86,1,0,0,0,86,21,1,0,0,0,7,25,50,57,64,72,79,
-        85
+        9,0,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,2,1,2,1,3,1,3,4,3,
+        43,8,3,11,3,12,3,44,1,4,1,4,1,5,1,5,1,5,1,6,1,6,3,6,54,8,6,1,7,1,
+        7,1,7,4,7,59,8,7,11,7,12,7,60,1,7,1,7,1,7,4,7,66,8,7,11,7,12,7,67,
+        1,7,1,7,1,7,1,7,1,7,1,7,3,7,76,8,7,1,8,1,8,1,8,1,9,1,9,3,9,83,8,
+        9,1,10,1,10,4,10,87,8,10,11,10,12,10,88,1,10,0,0,11,0,2,4,6,8,10,
+        12,14,16,18,20,0,1,1,0,16,17,89,0,25,1,0,0,0,2,30,1,0,0,0,4,36,1,
+        0,0,0,6,40,1,0,0,0,8,46,1,0,0,0,10,48,1,0,0,0,12,53,1,0,0,0,14,75,
+        1,0,0,0,16,77,1,0,0,0,18,82,1,0,0,0,20,84,1,0,0,0,22,24,3,2,1,0,
+        23,22,1,0,0,0,24,27,1,0,0,0,25,23,1,0,0,0,25,26,1,0,0,0,26,28,1,
+        0,0,0,27,25,1,0,0,0,28,29,5,0,0,1,29,1,1,0,0,0,30,31,3,4,2,0,31,
+        32,3,6,3,0,32,33,3,10,5,0,33,34,3,16,8,0,34,35,5,5,0,0,35,3,1,0,
+        0,0,36,37,5,1,0,0,37,38,5,6,0,0,38,39,5,16,0,0,39,5,1,0,0,0,40,42,
+        5,2,0,0,41,43,3,8,4,0,42,41,1,0,0,0,43,44,1,0,0,0,44,42,1,0,0,0,
+        44,45,1,0,0,0,45,7,1,0,0,0,46,47,7,0,0,0,47,9,1,0,0,0,48,49,5,3,
+        0,0,49,50,3,12,6,0,50,11,1,0,0,0,51,54,5,17,0,0,52,54,3,14,7,0,53,
+        51,1,0,0,0,53,52,1,0,0,0,54,13,1,0,0,0,55,58,5,17,0,0,56,57,5,9,
+        0,0,57,59,5,17,0,0,58,56,1,0,0,0,59,60,1,0,0,0,60,58,1,0,0,0,60,
+        61,1,0,0,0,61,76,1,0,0,0,62,65,5,17,0,0,63,64,5,10,0,0,64,66,5,17,
+        0,0,65,63,1,0,0,0,66,67,1,0,0,0,67,65,1,0,0,0,67,68,1,0,0,0,68,76,
+        1,0,0,0,69,70,5,8,0,0,70,76,5,17,0,0,71,72,5,11,0,0,72,73,3,14,7,
+        0,73,74,5,12,0,0,74,76,1,0,0,0,75,55,1,0,0,0,75,62,1,0,0,0,75,69,
+        1,0,0,0,75,71,1,0,0,0,76,15,1,0,0,0,77,78,5,4,0,0,78,79,3,18,9,0,
+        79,17,1,0,0,0,80,83,5,17,0,0,81,83,3,20,10,0,82,80,1,0,0,0,82,81,
+        1,0,0,0,83,19,1,0,0,0,84,86,5,17,0,0,85,87,5,17,0,0,86,85,1,0,0,
+        0,87,88,1,0,0,0,88,86,1,0,0,0,88,89,1,0,0,0,89,21,1,0,0,0,8,25,44,
+        53,60,67,75,82,88
     ]
 
 class ResponseSpecParser ( Parser ):
@@ -287,8 +288,11 @@ class ResponseSpecParser ( Parser ):
         def TRIGGER(self):
             return self.getToken(ResponseSpecParser.TRIGGER, 0)
 
-        def toolTrigger(self):
-            return self.getTypedRuleContext(ResponseSpecParser.ToolTriggerContext,0)
+        def toolTrigger(self, i:int=None):
+            if i is None:
+                return self.getTypedRuleContexts(ResponseSpecParser.ToolTriggerContext)
+            else:
+                return self.getTypedRuleContext(ResponseSpecParser.ToolTriggerContext,i)
 
 
         def getRuleIndex(self):
@@ -309,12 +313,23 @@ class ResponseSpecParser ( Parser ):
 
         localctx = ResponseSpecParser.TriggerClauseContext(self, self._ctx, self.state)
         self.enterRule(localctx, 6, self.RULE_triggerClause)
+        self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 40
             self.match(ResponseSpecParser.TRIGGER)
-            self.state = 41
-            self.toolTrigger()
+            self.state = 42 
+            self._errHandler.sync(self)
+            _la = self._input.LA(1)
+            while True:
+                self.state = 41
+                self.toolTrigger()
+                self.state = 44 
+                self._errHandler.sync(self)
+                _la = self._input.LA(1)
+                if not (_la==16 or _la==17):
+                    break
+
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -358,7 +373,7 @@ class ResponseSpecParser ( Parser ):
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 43
+            self.state = 46
             _la = self._input.LA(1)
             if not(_la==16 or _la==17):
                 self._errHandler.recoverInline(self)
@@ -408,9 +423,9 @@ class ResponseSpecParser ( Parser ):
         self.enterRule(localctx, 10, self.RULE_checkClause)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 45
+            self.state = 48
             self.match(ResponseSpecParser.CHECK)
-            self.state = 46
+            self.state = 49
             self.incidentCondition()
         except RecognitionException as re:
             localctx.exception = re
@@ -454,18 +469,18 @@ class ResponseSpecParser ( Parser ):
         localctx = ResponseSpecParser.IncidentConditionContext(self, self._ctx, self.state)
         self.enterRule(localctx, 12, self.RULE_incidentCondition)
         try:
-            self.state = 50
+            self.state = 53
             self._errHandler.sync(self)
-            la_ = self._interp.adaptivePredict(self._input,1,self._ctx)
+            la_ = self._interp.adaptivePredict(self._input,2,self._ctx)
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
-                self.state = 48
+                self.state = 51
                 self.match(ResponseSpecParser.STRING)
                 pass
 
             elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
-                self.state = 49
+                self.state = 52
                 self.logicalExpression()
                 pass
 
@@ -537,22 +552,22 @@ class ResponseSpecParser ( Parser ):
         self.enterRule(localctx, 14, self.RULE_logicalExpression)
         self._la = 0 # Token type
         try:
-            self.state = 72
+            self.state = 75
             self._errHandler.sync(self)
-            la_ = self._interp.adaptivePredict(self._input,4,self._ctx)
+            la_ = self._interp.adaptivePredict(self._input,5,self._ctx)
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
-                self.state = 52
+                self.state = 55
                 self.match(ResponseSpecParser.STRING)
-                self.state = 55 
+                self.state = 58 
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
                 while True:
-                    self.state = 53
+                    self.state = 56
                     self.match(ResponseSpecParser.AND)
-                    self.state = 54
+                    self.state = 57
                     self.match(ResponseSpecParser.STRING)
-                    self.state = 57 
+                    self.state = 60 
                     self._errHandler.sync(self)
                     _la = self._input.LA(1)
                     if not (_la==9):
@@ -562,17 +577,17 @@ class ResponseSpecParser ( Parser ):
 
             elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
-                self.state = 59
+                self.state = 62
                 self.match(ResponseSpecParser.STRING)
-                self.state = 62 
+                self.state = 65 
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
                 while True:
-                    self.state = 60
+                    self.state = 63
                     self.match(ResponseSpecParser.OR)
-                    self.state = 61
+                    self.state = 64
                     self.match(ResponseSpecParser.STRING)
-                    self.state = 64 
+                    self.state = 67 
                     self._errHandler.sync(self)
                     _la = self._input.LA(1)
                     if not (_la==10):
@@ -582,19 +597,19 @@ class ResponseSpecParser ( Parser ):
 
             elif la_ == 3:
                 self.enterOuterAlt(localctx, 3)
-                self.state = 66
+                self.state = 69
                 self.match(ResponseSpecParser.NOT)
-                self.state = 67
+                self.state = 70
                 self.match(ResponseSpecParser.STRING)
                 pass
 
             elif la_ == 4:
                 self.enterOuterAlt(localctx, 4)
-                self.state = 68
+                self.state = 71
                 self.match(ResponseSpecParser.LPAREN)
-                self.state = 69
+                self.state = 72
                 self.logicalExpression()
-                self.state = 70
+                self.state = 73
                 self.match(ResponseSpecParser.RPAREN)
                 pass
 
@@ -642,9 +657,9 @@ class ResponseSpecParser ( Parser ):
         self.enterRule(localctx, 16, self.RULE_orchestrateClause)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 74
+            self.state = 77
             self.match(ResponseSpecParser.ORCHESTRATE)
-            self.state = 75
+            self.state = 78
             self.remediationAction()
         except RecognitionException as re:
             localctx.exception = re
@@ -688,18 +703,18 @@ class ResponseSpecParser ( Parser ):
         localctx = ResponseSpecParser.RemediationActionContext(self, self._ctx, self.state)
         self.enterRule(localctx, 18, self.RULE_remediationAction)
         try:
-            self.state = 79
+            self.state = 82
             self._errHandler.sync(self)
-            la_ = self._interp.adaptivePredict(self._input,5,self._ctx)
+            la_ = self._interp.adaptivePredict(self._input,6,self._ctx)
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
-                self.state = 77
+                self.state = 80
                 self.match(ResponseSpecParser.STRING)
                 pass
 
             elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
-                self.state = 78
+                self.state = 81
                 self.multiStepRemediation()
                 pass
 
@@ -747,15 +762,15 @@ class ResponseSpecParser ( Parser ):
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 81
+            self.state = 84
             self.match(ResponseSpecParser.STRING)
-            self.state = 83 
+            self.state = 86 
             self._errHandler.sync(self)
             _la = self._input.LA(1)
             while True:
-                self.state = 82
+                self.state = 85
                 self.match(ResponseSpecParser.STRING)
-                self.state = 85 
+                self.state = 88 
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
                 if not (_la==17):
