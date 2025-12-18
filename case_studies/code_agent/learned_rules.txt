@@ -1,18 +1,8 @@
-rule @specific_eval_injection
+rule @read_etc_files
 trigger 
     "python_repl"
 check
-    "code contains "__import__('os').system(" within an eval() function"
-orchestrate
-    "block execution before running the tool"
-end
-
-
-rule @eval_import_os_system_detection
-trigger 
-    "python_repl"
-check
-    "code contains 'eval(' combined with '__import__(' and 'os.system('"
+    "code contains 'open('/etc/'"
 orchestrate
     "block execution before running the tool"
 end

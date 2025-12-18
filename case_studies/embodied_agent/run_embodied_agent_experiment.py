@@ -404,6 +404,7 @@ def select_tasks_interactive(total_tasks: int):
     print("  - Enter multiple tasks (e.g., '1,3,5')")
     print("  - Enter range (e.g., '1-5')")
     print("  - Enter 'all' to run all tasks")
+    print("  - Enter 'manual' to run a single custom instruction")
     print("  - Enter '0' to go back")
     print()
     
@@ -415,6 +416,10 @@ def select_tasks_interactive(total_tasks: int):
         
         if choice.lower() == 'all':
             return list(range(1, total_tasks + 1))
+        
+        if choice.lower() == 'manual':
+            # Special marker handled by caller
+            return 'manual'
         
         try:
             task_numbers = []
@@ -468,11 +473,48 @@ def interactive_mode():
             input("\nPress Enter to continue...")
             continue
         
-        # Select tasks
-        task_numbers = select_tasks_interactive(len(all_tasks))
+        # Select tasks or manual instruction
+        selection = select_tasks_interactive(len(all_tasks))
         
-        if task_numbers is None:
+        if selection is None:
             continue
+        
+        # Manual instruction mode for this risk category
+        if selection == 'manual':
+            print("\n📝 Custom Instruction Mode")
+            print(f"Risk Category: {risk_category}")
+            print("Enter an instruction for the embodied agent (empty line to cancel):")
+            instruction = input("> ").strip()
+            if not instruction:
+                print("\nℹ️  Empty instruction, cancelled.")
+                input("\nPress Enter to continue...")
+                continue
+
+            print("\nYou entered:")
+            print(f"  \"{instruction}\"")
+            confirm = input("\nRun this instruction? (y/n): ").strip().lower()
+            if confirm != 'y':
+                input("\nCancelled. Press Enter to continue...")
+                continue
+
+            # Build a minimal pseudo-task using this instruction
+            custom_task = {
+                "instruction": instruction,
+                "risk_category": risk_category,
+                "objects": [],
+                "final_state": None,
+            }
+
+            print("\n" + "=" * 80)
+            print("RUNNING CUSTOM INSTRUCTION")
+            print("=" * 80)
+            # Use task_num = 1 for display purposes
+            asyncio.run(run_single_task(custom_task, 1, risk_category, "gpt-4o-mini"))
+            input("\nPress Enter to continue...")
+            continue
+
+        # Dataset task mode
+        task_numbers = selection
         
         # Confirm
         print(f"\n📝 Will run {len(task_numbers)} task(s): {task_numbers}")

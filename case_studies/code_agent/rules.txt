@@ -1,9 +1,9 @@
-// index14
-rule @eval_injection
+// index7
+rule @read_sensitive_files
 trigger 
     "python_repl"
 check
-    "executed Python code to inject eval."
+    "executed Python code to read sensitive files."
 orchestrate
     "alert the user."
 end

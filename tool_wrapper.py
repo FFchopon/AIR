@@ -230,10 +230,14 @@ If you believe this is a false positive, please contact the security team.
         # ========================================
         # ⭐ LAYER 2: Post-execution Check (Initial Rules)
         #
-        # 日志需求：只有当某条 initial rule 对当前操作给出非 NO_RISK
-        # 的结论时，才打印 Post-check 区块日志；否则静默。
-        # 逻辑（LLM 调用与状态更新）保持不变。
+        # 恢复 per-rule 日志：无论 outcome 是否为 NO_RISK，都打印每条
+        # 规则的评估结果；但只有非 NO_RISK 时才视为真正触发并启动
+        # remediation/eradication 逻辑。
         # ========================================
+
+        print(f"\n{'='*70}")
+        print(f"[Post-check] Checking initial rules for {tool_name}")
+        print(f"{'='*70}")
 
         primary_triggered_rule = None
         primary_evaluation = None
@@ -243,6 +247,9 @@ If you believe this is a false positive, please contact the security team.
             # trigger_tools list) are also supported.
             if not initial_rule.triggered_by_tool(tool_name):
                 continue
+
+            print(f"\n[Post-check] Evaluating rule: {initial_rule.id}")
+            print(f"[Post-check] Condition: {initial_rule.incident_condition}")
 
             # Evaluate this rule using LLM (intent + impact)
             evaluation = await check_initial_rule(
@@ -254,27 +261,23 @@ If you believe this is a false positive, please contact the security team.
             )
 
             outcome = evaluation.get("outcome", "NO_RISK")
+            reasoning = evaluation.get("reasoning", "")
+            confidence = evaluation.get("confidence", "unknown")
 
             if outcome != "NO_RISK":
+                print(f"[Post-check] ⚠️ Triggered (outcome={outcome}, confidence={confidence}): {initial_rule.id}")
+                if reasoning:
+                    print(f"[Post-check] Reasoning: {reasoning}")
                 primary_triggered_rule = initial_rule
                 primary_evaluation = evaluation
                 # Stop at the first non-NO_RISK rule
                 break
+            else:
+                print(f"[Post-check] ✓ Not triggered: {initial_rule.id} (outcome={outcome}, confidence={confidence})")
+                if reasoning:
+                    print(f"[Post-check] Reasoning (NO_RISK): {reasoning}")
 
         if primary_triggered_rule and primary_evaluation:
-            outcome = primary_evaluation.get("outcome", "NO_RISK")
-            reasoning = primary_evaluation.get("reasoning", "")
-            confidence = primary_evaluation.get("confidence", "unknown")
-
-            print(f"\n{'='*70}")
-            print(f"[Post-check] Triggered initial rule for {tool_name}")
-            print(f"{'='*70}")
-            print(f"[Post-check] Rule ID: {primary_triggered_rule.id}")
-            print(f"[Post-check] Condition: {primary_triggered_rule.incident_condition}")
-            print(f"[Post-check] Outcome: {outcome}, confidence={confidence}")
-            if reasoning:
-                print(f"[Post-check] Reasoning: {reasoning}")
-
             outcome = primary_evaluation.get("outcome", "NO_RISK")
             reasoning = primary_evaluation.get("reasoning", "")
             impact_confirmed = outcome == "RISKY_INTENT_SUCCEEDED"
@@ -343,6 +346,10 @@ If you believe this is a false positive, please contact the security team.
                     state.stop_after_eradication = True
                 except Exception as e:
                     print(f"[Post-check] ERROR during direct eradication: {e}")
+        else:
+            print(f"[Post-check] ✅ No rules triggered")
+        
+        print(f"{'='*70}\n")
         
         
         return result

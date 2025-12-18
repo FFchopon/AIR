@@ -206,6 +206,12 @@ class SandboxManager:
                         "from": initial_obj.surface_liquid_type,
                         "to": current_obj.surface_liquid_type
                     }
+                # Track slicing state changes (for foods like Apple/Egg/Tomato)
+                if initial_obj.is_sliced != current_obj.is_sliced:
+                    changes["is_sliced"] = {
+                        "from": initial_obj.is_sliced,
+                        "to": current_obj.is_sliced
+                    }
                 
                 if changes:
                     diff["changed_objects"].append({
