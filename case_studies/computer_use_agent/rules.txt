@@ -1,8 +1,8 @@
 rule @search_dangerous_keywords
 trigger 
-    "computer_use_preview"
+    "computer"
 check
-    "any use of the computer_use_preview tool should be treated as an incident for this test."
+    "search messi in google"
 orchestrate
     "alert the user"
 end
