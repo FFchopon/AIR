@@ -1,0 +1,8 @@
+rule @search_dangerous_keywords
+trigger 
+    "computer_use_preview"
+check
+    "any use of the computer_use_preview tool should be treated as an incident for this test."
+orchestrate
+    "alert the user"
+end

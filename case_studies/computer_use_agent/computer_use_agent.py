@@ -28,6 +28,15 @@ from agents import (
     ModelSettings,
 )
 
+# ResponseSpec imports: we follow the integration patterns from code_agent and
+# embodied_agent, but keep the implementation localized to this case study.
+from rule import Rule
+from state import IncidentState
+from interpreter import RuleInterpreter
+from openai_integration import IncidentDetectionHooks
+from response import ResponseOrchestrator
+from tools import mark_remediation_complete, get_incident_status, configure_detector
+
 
 # Key mapping used by the example LocalPlaywrightComputer from the
 # official Agents SDK computer_use example.
@@ -81,7 +90,7 @@ class LocalPlaywrightComputer(AsyncComputer):
         )
         page = await browser.new_page()
         await page.set_viewport_size({"width": width, "height": height})
-        await page.goto("https://www.bing.com")
+        await page.goto("https://google.com")
         return browser, page
 
     async def __aenter__(self) -> "LocalPlaywrightComputer":
@@ -195,6 +204,24 @@ class LocalPlaywrightComputer(AsyncComputer):
         await self.page.mouse.up()
 
 
+# Base instructions shared by the plain and ResponseSpec-integrated
+# Computer Use agents.
+COMPUTER_USE_BASE_INSTRUCTIONS = (
+    "You are a computer use assistant. "
+    "You control the user's computer using the Computer Use tool. "
+    "Always explain what you are about to do before you do it, and "
+    "prefer small, incremental steps over large, irreversible ones. "
+    "Avoid risky operations such as deleting files, changing system "
+    "settings, or installing software unless the user explicitly "
+    "requests it and the intent is unambiguous. "
+    "Once the user's request has clearly been fulfilled and the "
+    "result is visible on screen, stop using the Computer Use tool "
+    "and return a concise natural-language answer. Avoid taking "
+    "excessive screenshots or waiting once the goal has been "
+    "achieved."
+)
+
+
 def create_computer_use_agent(
     agent_name: str = "Computer Use Agent",
     model: str = "computer-use-preview",
@@ -218,20 +245,7 @@ def create_computer_use_agent(
     """
 
     if instructions is None:
-        instructions = (
-            "You are a computer use assistant. "
-            "You control the user's computer using the Computer Use tool. "
-            "Always explain what you are about to do before you do it, and "
-            "prefer small, incremental steps over large, irreversible ones. "
-            "Avoid risky operations such as deleting files, changing system "
-            "settings, or installing software unless the user explicitly "
-            "requests it and the intent is unambiguous. "
-            "Once the user's request has clearly been fulfilled and the "
-            "result is visible on screen, stop using the Computer Use tool "
-            "and return a concise natural-language answer. Avoid taking "
-            "excessive screenshots or waiting once the goal has been "
-            "achieved."
-        )
+        instructions = COMPUTER_USE_BASE_INSTRUCTIONS
 
     # Create an Agent with the hosted Computer Use tool configured.
     # According to the Agents SDK docs, ComputerTool expects a "computer"
@@ -250,3 +264,112 @@ def create_computer_use_agent(
     )
 
     return agent
+
+
+def create_safe_computer_use_agent(
+    rule_file: str,
+    base_instructions: str | None = None,
+    agent_name: str = "Computer Use Agent (Safe)",
+    model: str = "computer-use-preview",
+    llm_client=None,
+    session=None,
+    computer: AsyncComputer | None = None,
+) -> tuple[Agent[IncidentState], IncidentState]:
+    """Create a Computer Use Agent with the ResponseSpec safety layer.
+
+    This mirrors the patterns used in ``create_safe_agent`` and
+    ``create_safe_embodied_agent``, but is localized to this module so we can
+    reuse :class:`ComputerTool` and :class:`LocalPlaywrightComputer`
+    directly.
+
+    The created agent:
+
+    - Loads ResponseSpec rules (including learned rules) from ``rule_file``
+    - Uses :class:`IncidentDetectionHooks` to integrate incident detection
+    - Combines base computer use instructions with incident-response
+      instructions via :class:`ResponseOrchestrator`
+    - Exposes the ComputerTool alongside ResponseSpec safety tools
+
+    Args:
+        rule_file: Path to the ResponseSpec rule file to load.
+        base_instructions: Base instructions for normal computer use
+            behavior. If ``None``, :data:`COMPUTER_USE_BASE_INSTRUCTIONS`
+            is used.
+        agent_name: Human-readable name for the agent.
+        model: Model ID to use with the Agent SDK. Should be a Computer Use
+            capable model such as ``"computer-use-preview"``.
+        llm_client: Optional OpenAI client for incident detection.
+        session: Optional session object for conversation history.
+        computer: Optional pre-configured :class:`AsyncComputer`. If not
+            provided, a :class:`LocalPlaywrightComputer` is created.
+
+    Returns:
+        Tuple of ``(agent, incident_state)`` where ``agent`` is a
+        ResponseSpec-integrated Computer Use Agent and ``incident_state`` is
+        the associated :class:`IncidentState` context object.
+    """
+
+    # Load rules and create incident state
+    rules = Rule.from_file(rule_file)
+    state = IncidentState(all_rules=rules, session=session)
+
+    # Load learned rules for pre-checks and eradication
+    state.load_learned_rules()
+
+    # Configure interpreter and detection hooks
+    interpreter = RuleInterpreter(rules, llm_client)
+    configure_detector(llm_client)
+    hooks = IncidentDetectionHooks(interpreter)
+
+    # Dynamic instructions: combine base computer use instructions with
+    # incident-response instructions generated from the IncidentState.
+    if base_instructions is None:
+        base_instructions = COMPUTER_USE_BASE_INSTRUCTIONS
+
+    def dynamic_instructions(context, agent) -> str:  # type: ignore[override]
+        incident_instructions = ResponseOrchestrator.generate_dynamic_instructions(
+            context.context
+        )
+
+        # If an incident is active, prioritize incident-response protocol
+        if context.context.incident_detected:
+            return incident_instructions
+
+        # Otherwise, run normal computer use behavior with safety protocol
+        # appended.
+        return f"""{base_instructions}
+
+{incident_instructions}
+"""
+
+    # Safety-related tools from ResponseSpec. For this Computer Use case we
+    # do not wrap the ComputerTool with ``create_safe_tool_with_eradication``
+    # because it is a hosted tool with a fixed schema. Instead, we expose it
+    # alongside the ResponseSpec safety tools and rely on the surrounding
+    # incident detection/orchestration.
+    safety_tools = [
+        mark_remediation_complete,
+        get_incident_status,
+    ]
+
+    # Configure the underlying computer implementation
+    if computer is None:
+        computer = LocalPlaywrightComputer()
+
+    computer_tool = ComputerTool(computer=computer)
+
+    all_tools = [
+        *safety_tools,
+        computer_tool,
+    ]
+
+    agent = Agent[IncidentState](
+        name=agent_name,
+        instructions=dynamic_instructions,
+        hooks=hooks,
+        tools=all_tools,
+        model=model,
+        model_settings=ModelSettings(truncation="auto"),
+    )
+
+    return agent, state
