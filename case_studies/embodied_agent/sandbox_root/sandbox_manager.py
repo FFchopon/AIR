@@ -92,7 +92,7 @@ class SandboxManager:
         self.current_task = task
         
         # Log the reset
-        print(f"🔄 Sandbox reset to pristine state for {self.risk_category}")
+        # print(f"🔄 Sandbox reset to pristine state for {self.risk_category}")
     
     def get_environment(self) -> EnvironmentState:
         """Get current environment state."""

@@ -67,7 +67,7 @@ class RiskSceneTemplate:
         return env
 
 
-# Unified scene template for Fire Hazard risk category
+# Unified scene templates per risk category
 FIRE_HAZARD_SCENE = RiskSceneTemplate("Fire Hazard", "Fire_Hazard_Kitchen_Bathroom")
 
 
@@ -95,6 +95,9 @@ def initialize_fire_hazard_scene():
     scene.add_object("Toilet", "Toilet", LocationType.ON_FLOOR.value)
     scene.add_object("Bathtub", "Bathtub", LocationType.ON_FLOOR.value)
     scene.add_object("ShowerCurtain", "ShowerCurtain", LocationType.ON_FLOOR.value)
+    
+    # Surfaces and receptacles
+    scene.add_object("Table", "Table", LocationType.ON_FLOOR.value)
     
     # Cookware and containers
     scene.add_object("Mug", "Mug", LocationType.ON_COUNTER.value)
@@ -443,8 +446,40 @@ def initialize_slip_hazard_scene():
     scene.add_object("Wine", "Wine", "virtual")
 
 
-# Initialize the unified scene
+# Initialize the per-category scene
 initialize_slip_hazard_scene()
+
+
+# ============================================================================
+# Unified Master Scene
+# ============================================================================
+
+# Create a single unified scene that aggregates objects from all risk
+# categories. This gives the embodied agent one rich environment while
+# keeping per-category templates for compatibility and potential analysis.
+UNIFIED_SCENE = RiskSceneTemplate("Unified Hazard", "Unified_Risk_Scene")
+
+
+def _build_unified_scene() -> None:
+    """Populate UNIFIED_SCENE by merging all per-category templates.
+
+    If the same object name appears in multiple templates, the first
+    definition is kept. This ensures a consistent, comprehensive scene
+    without duplicate keys.
+    """
+    for template in [
+        FIRE_HAZARD_SCENE,
+        ELECTRICAL_SHOCK_SCENE,
+        EXPLOSION_SCENE,
+        POISONING_SCENE,
+        SLIP_HAZARD_SCENE,
+    ]:
+        for name, obj in template.default_objects.items():
+            if name not in UNIFIED_SCENE.default_objects:
+                UNIFIED_SCENE.default_objects[name] = obj.clone()
+
+
+_build_unified_scene()
 
 
 def create_environment_from_task(task: Dict[str, Any]) -> EnvironmentState:
@@ -459,24 +494,11 @@ def create_environment_from_task(task: Dict[str, Any]) -> EnvironmentState:
     Returns:
         Initialized EnvironmentState with all objects for that risk category
     """
-    risk_category = task.get("risk_category", "Unknown")
-    
-    # Get unified scene template for the risk category
-    if "Fire Hazard" in risk_category:
-        env = FIRE_HAZARD_SCENE.create_environment()
-    elif "Electrical Shock" in risk_category:
-        env = ELECTRICAL_SHOCK_SCENE.create_environment()
-    elif "Explosion" in risk_category:
-        env = EXPLOSION_SCENE.create_environment()
-    elif "Poisoning" in risk_category or "Ingestion" in risk_category:
-        env = POISONING_SCENE.create_environment()
-    elif "Slip" in risk_category:
-        env = SLIP_HAZARD_SCENE.create_environment()
-    else:
-        # Placeholder for other risk categories
-        env = EnvironmentState(scene_name=f"{risk_category}_Scene")
-    
-    return env
+    # For the interactive demo and simplified experiments, always use the
+    # unified master scene regardless of risk_category. This gives a single,
+    # rich environment containing objects from all original scenes.
+    _ = task.get("risk_category", "Unknown")  # kept for compatibility
+    return UNIFIED_SCENE.create_environment()
 
 
 def get_scene_template(risk_category: str) -> Optional[RiskSceneTemplate]:
@@ -487,21 +509,15 @@ def get_scene_template(risk_category: str) -> Optional[RiskSceneTemplate]:
         risk_category: Risk category name
         
     Returns:
-        RiskSceneTemplate for that category, or None if not found
+        Unified RiskSceneTemplate. Per-category templates are preserved
+        for compatibility but the unified template is the canonical one
+        used by the sandbox.
     """
-    if "Fire Hazard" in risk_category:
-        return FIRE_HAZARD_SCENE
-    elif "Electrical Shock" in risk_category:
-        return ELECTRICAL_SHOCK_SCENE
-    elif "Explosion" in risk_category:
-        return EXPLOSION_SCENE
-    elif "Poisoning" in risk_category or "Ingestion" in risk_category:
-        return POISONING_SCENE
-    elif "Slip" in risk_category:
-        return SLIP_HAZARD_SCENE
-    else:
-        # Placeholder for other risk categories
-        return None
+    # Always return the unified scene template so that tools like
+    # SandboxManager.export_scene_template operate on the single
+    # comprehensive environment.
+    _ = risk_category  # unused, kept for call-site compatibility
+    return UNIFIED_SCENE
 
 
 def save_scene_template(template: RiskSceneTemplate, filepath: str):

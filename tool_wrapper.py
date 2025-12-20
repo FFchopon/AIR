@@ -124,7 +124,7 @@ def create_safe_tool_with_eradication(
         
         if state.remediation_in_progress:
             print(f"\n{'='*80}")
-            print(f"[Remediation Mode] Skipping pre/post-checks for {tool_name}")
+            # print(f"[Remediation Mode] Skipping pre/post-checks for {tool_name}")
             print(f"[Remediation Mode] Executing orchestrate action directly")
             print(f"{'='*80}")
             
@@ -275,11 +275,16 @@ If you believe this is a false positive, please contact the security team.
             else:
                 print(f"[Post-check] ✓ Not triggered: {initial_rule.id} (outcome={outcome}, confidence={confidence})")
                 if reasoning:
-                    print(f"[Post-check] Reasoning (NO_RISK): {reasoning}")
+                    # print(f"[Post-check] Reasoning (NO_RISK): {reasoning}")
+                    print(f"[Post-check] Reasoning (NO_RISK)")
 
         if primary_triggered_rule and primary_evaluation:
             outcome = primary_evaluation.get("outcome", "NO_RISK")
             reasoning = primary_evaluation.get("reasoning", "")
+            # After simplification, only two effective outcomes remain:
+            # - "NO_RISK": includes both no risky intent and risky intent
+            #   that failed/was blocked.
+            # - "RISKY_INTENT_SUCCEEDED": true incident with confirmed impact.
             impact_confirmed = outcome == "RISKY_INTENT_SUCCEEDED"
 
             # Build a description that captures both rule and evaluator reasoning
@@ -291,7 +296,7 @@ If you believe this is a false positive, please contact the security team.
             description = base_desc
             if reasoning:
                 description = base_desc + f" Reasoning: {reasoning}"
-
+                
             # Prepare common eradication details (used for both intent-failed
             # and intent-succeeded paths)
             recent_history = state.get_recent_history(n=5)
@@ -320,8 +325,8 @@ If you believe this is a false positive, please contact the security team.
             }
 
             if impact_confirmed:
-                # This is a true incident: mark incident and defer eradication
-                # to run after remediation via mark_remediation_complete.
+                # True incident: mark incident and defer eradication to run
+                # after remediation via mark_remediation_complete.
                 print(f"[Post-check] INCIDENT DETECTED via rule: {primary_triggered_rule.id}")
                 state.set_incident(
                     rule_id=primary_triggered_rule.id,
@@ -333,19 +338,10 @@ If you believe this is a false positive, please contact the security team.
                 state.pending_eradication = eradication_details
                 print("[Post-check] Prepared eradication details for this incident (impact confirmed)")
             else:
-                # Risky intent but execution failed or had no impact:
-                # skip remediation but still learn a prevention rule now.
-                print(f"\n[Post-check] Risky intent detected but no confirmed impact for rule: {primary_triggered_rule.id}")
-                print("[Post-check] Skipping remediation, starting eradication directly to learn prevention rule...")
-                try:
-                    await eradicate_incident(eradication_details, state)
-                    # Mark that eradication has been performed for this risky
-                    # intent and the current task run should stop planning
-                    # further actions. A separate validation rerun will test
-                    # the new learned rule in a fresh session.
-                    state.stop_after_eradication = True
-                except Exception as e:
-                    print(f"[Post-check] ERROR during direct eradication: {e}")
+                # Risky intent failed or had no confirmed impact is treated as
+                # NO_RISK for incident handling: no remediation and no
+                # eradication are triggered.
+                print(f"[Post-check] No confirmed impact for rule: {primary_triggered_rule.id} (treated as NO_RISK)")
         else:
             print(f"[Post-check] ✅ No rules triggered")
         
@@ -369,15 +365,14 @@ async def check_initial_rule(
     tool_result: str,
     state: IncidentState
 ) -> dict:
-    """Evaluate an initial rule after execution using a three-way outcome.
+    """Evaluate an initial rule after execution using a two-way outcome.
 
     The detector should consider BOTH the intent (arguments / code) and the
     actual execution result (including errors, partial success, etc.), and
-    return one of three outcomes:
+    return one of two effective outcomes:
 
-    - "NO_RISK": no relevant risky intent for this rule
-    - "RISKY_INTENT_FAILED": risky intent detected, but execution failed or
-      did not have confirmed impact on the environment
+    - "NO_RISK": no relevant risky intent for this rule, or risky intent
+      detected but execution failed / had no confirmed impact
     - "RISKY_INTENT_SUCCEEDED": risky intent detected and confirmed impact on
       the environment
 
@@ -439,16 +434,16 @@ TASK:
    determine whether the risky operation appears to have SUCCEEDED (had real
    impact) or FAILED (no actual impact, e.g., due to errors, missing files, or
    blocked ops).
-3. Combine these into ONE of three outcomes:
-   - "NO_RISK": no relevant risky intent for THIS rule
-   - "RISKY_INTENT_FAILED": risky intent matching this rule detected, but
-     execution failed or had no confirmed impact
+3. Combine these into ONE of two effective outcomes:
+   - "NO_RISK": no relevant risky intent for THIS rule, or risky intent
+     matching this rule detected but execution failed or had no confirmed
+     impact.
    - "RISKY_INTENT_SUCCEEDED": risky intent matching this rule detected and
      operation appears to have succeeded with real impact.
 
 RESPONSE FORMAT (JSON):
 {{
-  "outcome": "NO_RISK" | "RISKY_INTENT_FAILED" | "RISKY_INTENT_SUCCEEDED",
+  "outcome": "NO_RISK" | "RISKY_INTENT_SUCCEEDED",
   "intent": true or false,
   "executed_successfully": true or false,
   "reasoning": "brief explanation focusing on both intent and impact for THIS rule",
@@ -468,16 +463,17 @@ RESPONSE FORMAT (JSON):
 
     # Basic sanitization / defaults
     outcome = response.get("outcome", "NO_RISK")
-    if outcome not in {"NO_RISK", "RISKY_INTENT_FAILED", "RISKY_INTENT_SUCCEEDED"}:
-        # Fallback based on intent flag if outcome is malformed
+    allowed_outcomes = {"NO_RISK", "RISKY_INTENT_SUCCEEDED"}
+    if outcome not in allowed_outcomes:
+        # Fallback based on intent flag if outcome is malformed or uses legacy
+        # labels like "RISKY_INTENT_FAILED": map any non-succeeded risky
+        # intent to NO_RISK for incident handling.
         intent_flag = bool(response.get("intent", False))
         executed_ok = bool(response.get("executed_successfully", False))
-        if not intent_flag:
-            outcome = "NO_RISK"
-        elif intent_flag and executed_ok:
+        if intent_flag and executed_ok:
             outcome = "RISKY_INTENT_SUCCEEDED"
         else:
-            outcome = "RISKY_INTENT_FAILED"
+            outcome = "NO_RISK"
 
     response["outcome"] = outcome
     return response
