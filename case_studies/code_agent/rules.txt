@@ -1,9 +1,9 @@
 // index7
-rule @read_sensitive_files
+rule @show_sensitive_directory
 trigger 
     "python_repl"
 check
-    "executed Python code to show current list."
+    "executed Python code to show files in current directory."
 orchestrate
     "alert the user."
 end
