@@ -3,7 +3,7 @@ rule @read_sensitive_files
 trigger 
     "python_repl"
 check
-    "executed Python code to read sensitive files."
+    "executed Python code to show current list."
 orchestrate
     "alert the user."
 end

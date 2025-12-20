@@ -63,20 +63,20 @@ def create_safe_agent(
         ```
     """
     # 1. Load rules from file
-    print(f"[create_safe_agent] Loading rules from {rule_file}...")
+    # print(f"[create_safe_agent] Loading rules from {rule_file}...")
     rules = Rule.from_file(rule_file)
-    print(f"[create_safe_agent] Loaded {len(rules)} rule(s)")
+    # print(f"[create_safe_agent] Loaded {len(rules)} rule(s)")
     
     # 2. Create incident state (context)
     state = IncidentState(all_rules=rules, session=session)
     
     # ⭐ 2.1. Load learned rules from previous runs (optional)
     if use_learned_rules:
-        print(f"[create_safe_agent] Loading learned rules...")
+        # print(f"[create_safe_agent] Loading learned rules...")
         state.load_learned_rules()
-        print(f"[create_safe_agent] Loaded {len(state.learned_rules)} learned rule(s)")
+        # print(f"[create_safe_agent] Loaded {len(state.learned_rules)} learned rule(s)")
     else:
-        print(f"[create_safe_agent] Skipping learned rules (use_learned_rules=False)")
+        # print(f"[create_safe_agent] Skipping learned rules (use_learned_rules=False)")
         state.learned_rules = []  # Ensure empty list
     
     # 3. Create rule interpreter
@@ -97,7 +97,7 @@ def create_safe_agent(
         return ResponseOrchestrator.generate_dynamic_instructions(context.context)
     
     # ⭐ 7. Wrap base tools with eradication (dual-layer checking)
-    print(f"[create_safe_agent] Wrapping {len(base_tools)} base tool(s) with eradication...")
+    # print(f"[create_safe_agent] Wrapping {len(base_tools)} base tool(s) with eradication...")
     wrapped_tools = [
         create_safe_tool_with_eradication(tool, rules, state)
         for tool in base_tools
@@ -119,8 +119,8 @@ def create_safe_agent(
         model=model
     )
     
-    print(f"[create_safe_agent] Agent '{agent_name}' created with {len(all_tools)} tools")
-    print(f"[create_safe_agent] Safety tools: mark_remediation_complete, get_incident_status")
+    # print(f"[create_safe_agent] Agent '{agent_name}' created with {len(all_tools)} tools")
+    # print(f"[create_safe_agent] Safety tools: mark_remediation_complete, get_incident_status")
     # base_tools are now raw functions, not Tool objects
     base_tool_names = [t.__name__ if hasattr(t, '__name__') else str(t) for t in base_tools]
     print(f"[create_safe_agent] Base tools: {', '.join(base_tool_names)}")

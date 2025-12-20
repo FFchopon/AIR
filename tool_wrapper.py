@@ -123,10 +123,10 @@ def create_safe_tool_with_eradication(
         # ========================================
         
         if state.remediation_in_progress:
-            print(f"\n{'='*70}")
+            print(f"\n{'='*80}")
             print(f"[Remediation Mode] Skipping pre/post-checks for {tool_name}")
             print(f"[Remediation Mode] Executing orchestrate action directly")
-            print(f"{'='*70}")
+            print(f"{'='*80}")
             
             # Execute directly without checks
             try:
@@ -167,14 +167,14 @@ def create_safe_tool_with_eradication(
                     break
 
             if blocked_rule is not None:
-                print(f"\n{'='*70}")
+                print(f"\n{'='*80}")
                 print(f"[Pre-check] BLOCKED by learned rule for {tool_name}")
-                print(f"{'='*70}")
+                print(f"{'='*80}")
                 print(f"[Pre-check] Rule ID: {blocked_rule.id}")
-                print(f"[Pre-check] Pattern: {blocked_rule.incident_condition}")
-                print(f"[Pre-check] Confidence: {blocked_rule.confidence:.0%}")
-                if blocked_reasoning:
-                    print(f"[Pre-check] Reason: {blocked_reasoning}")
+                # print(f"[Pre-check] Pattern: {blocked_rule.incident_condition}")
+                # print(f"[Pre-check] Confidence: {blocked_rule.confidence:.0%}")
+                # if blocked_reasoning:
+                #     print(f"[Pre-check] Reason: {blocked_reasoning}")
 
                 # ⭐⭐⭐ Block execution: Return error message ⭐⭐⭐
                 return f"""
@@ -208,10 +208,10 @@ If you believe this is a false positive, please contact the security team.
         # ⭐ EXECUTION: Run the tool (only if passed pre-check)
         # ========================================
         
-        print(f"\n{'='*70}")
-        print(f"[Execution] Running {tool_name}...")
-        print(f"[Execution] Arguments: {json.dumps(kwargs, indent=2)[:200]}...")
-        print(f"{'='*70}")
+        # print(f"\n{'='*70}")
+        # print(f"[Execution] Running {tool_name}...")
+        # print(f"[Execution] Arguments: {json.dumps(kwargs, indent=2)[:200]}...")
+        # print(f"{'='*70}")
         
         try:
             # Call the base function (handle both sync and async)
@@ -235,9 +235,9 @@ If you believe this is a false positive, please contact the security team.
         # remediation/eradication 逻辑。
         # ========================================
 
-        print(f"\n{'='*70}")
+        print(f"\n{'='*80}")
         print(f"[Post-check] Checking initial rules for {tool_name}")
-        print(f"{'='*70}")
+        print(f"{'='*80}")
 
         primary_triggered_rule = None
         primary_evaluation = None
@@ -248,8 +248,8 @@ If you believe this is a false positive, please contact the security team.
             if not initial_rule.triggered_by_tool(tool_name):
                 continue
 
-            print(f"\n[Post-check] Evaluating rule: {initial_rule.id}")
-            print(f"[Post-check] Condition: {initial_rule.incident_condition}")
+            print(f"[Post-check] Evaluating rule: {initial_rule.id}")
+            # print(f"[Post-check] Condition: {initial_rule.incident_condition}")
 
             # Evaluate this rule using LLM (intent + impact)
             evaluation = await check_initial_rule(
@@ -265,9 +265,9 @@ If you believe this is a false positive, please contact the security team.
             confidence = evaluation.get("confidence", "unknown")
 
             if outcome != "NO_RISK":
-                print(f"[Post-check] ⚠️ Triggered (outcome={outcome}, confidence={confidence}): {initial_rule.id}")
-                if reasoning:
-                    print(f"[Post-check] Reasoning: {reasoning}")
+                # print(f"[Post-check] ⚠️ Triggered (outcome={outcome}, confidence={confidence}): {initial_rule.id}")
+                # if reasoning:
+                #   print(f"[Post-check] Reasoning: {reasoning}")
                 primary_triggered_rule = initial_rule
                 primary_evaluation = evaluation
                 # Stop at the first non-NO_RISK rule
@@ -322,7 +322,7 @@ If you believe this is a false positive, please contact the security team.
             if impact_confirmed:
                 # This is a true incident: mark incident and defer eradication
                 # to run after remediation via mark_remediation_complete.
-                print(f"\n[Post-check] INCIDENT DETECTED via rule: {primary_triggered_rule.id}")
+                print(f"[Post-check] INCIDENT DETECTED via rule: {primary_triggered_rule.id}")
                 state.set_incident(
                     rule_id=primary_triggered_rule.id,
                     description=description,
@@ -349,7 +349,7 @@ If you believe this is a false positive, please contact the security team.
         else:
             print(f"[Post-check] ✅ No rules triggered")
         
-        print(f"{'='*70}\n")
+        # print(f"{'='*80}\n")
         
         
         return result
@@ -457,11 +457,11 @@ RESPONSE FORMAT (JSON):
 """
 
     # Debug: print the exact prompt used for this safety judgement
-    print("\n" + "-" * 70)
-    print(f"[Detection Debug] check_initial_rule for rule={rule.id}, tool={tool_name}")
-    print("[Detection Debug] detection_prompt:" )
-    print(detection_prompt)
-    print("-" * 70 + "\n")
+    # print("\n" + "=" * 80)
+    # print(f"[Detection Debug] check_initial_rule for rule={rule.id}, tool={tool_name}")
+    # print("[Detection Debug] detection_prompt:" )
+    # print(detection_prompt)
+    # print("=" * 80 + "\n")
 
     detector = get_detector()
     response = detector._call_llm_for_detection(detection_prompt)

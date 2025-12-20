@@ -106,7 +106,7 @@ async def eradicate_incident(
     """
     
     print(f"\n{'='*80}")
-    print(f"🎓 ERADICATION PHASE: Learning from Incident")
+    print(f"ERADICATION PHASE: Learning from Incident")
     print(f"{'='*80}")
     
     # Build detailed incident analysis prompt
@@ -197,13 +197,13 @@ Generate the learned rule now.
     print(f"Trigger Tool: {learned_rule.trigger_tool}")
     print(f"Pattern: {learned_rule.incident_condition}")
     print(f"Confidence: {learned_rule.confidence:.0%}")
-    print(f"\nReasoning:")
-    print(f"  {learned_rule_data.reasoning}")
-    print(f"\nExamples that will be blocked:")
-    for example in learned_rule_data.examples:
-        print(f"  - {example}")
-    print(f"\nLearned from: {learned_rule.learned_from}")
-    print(f"{'='*80}\n")
+    # print(f"\nReasoning:")
+    # print(f"  {learned_rule_data.reasoning}")
+    # print(f"\nExamples that will be blocked:")
+    # for example in learned_rule_data.examples:
+    #    print(f"  - {example}")
+    # print(f"\nLearned from: {learned_rule.learned_from}")
+    # print(f"{'='*80}\n")
     
     return learned_rule
 

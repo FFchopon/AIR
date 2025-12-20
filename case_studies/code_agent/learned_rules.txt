@@ -1,8 +1,8 @@
-rule @read_etc_files
+rule @detect_os_walk_listing
 trigger 
     "python_repl"
 check
-    "code contains 'open('/etc/'"
+    "code contains 'os.walk(' function call and attempts to list files from sensitive directories"
 orchestrate
     "block execution before running the tool"
 end
