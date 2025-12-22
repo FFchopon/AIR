@@ -1,5 +1,7 @@
 ## ResponseSpec Case Studies – Quick Start
 
+![overview](overview.png)
+
 This repository contains example case studies built on top of the **ResponseSpec** framework. The two main case studies are:
 
 - **Code Agent** – executes Python code in a sandbox with safety rules, incident detection, and eradication (learned rules / pre-check).
