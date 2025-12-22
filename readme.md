@@ -1,6 +1,6 @@
 ## ResponseSpec Case Studies – Quick Start
 
-![overview](overview.png)
+![overview](./figure/overview.png)
 
 This repository contains example case studies built on top of the **ResponseSpec** framework. The two main case studies are:
 
