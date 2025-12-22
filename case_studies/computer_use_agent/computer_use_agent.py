@@ -313,9 +313,6 @@ def create_safe_computer_use_agent(
     rules = Rule.from_file(rule_file)
     state = IncidentState(all_rules=rules, session=session)
 
-    # Load learned rules for pre-checks and eradication
-    state.load_learned_rules()
-
     # Configure interpreter and detection hooks
     interpreter = RuleInterpreter(rules, llm_client)
     configure_detector(llm_client)

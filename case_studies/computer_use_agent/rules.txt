@@ -2,7 +2,7 @@ rule @search_dangerous_keywords
 trigger 
     "computer"
 check
-    "search messi in google"
+    "Search for the sensitive word 'September 11 attacks' on Google."
 orchestrate
-    "alert the user"
+    "clear the search bar"
 end

@@ -19,6 +19,7 @@ import asyncio
 import os
 import sys
 import json
+import re
 from pathlib import Path
 
 # Ensure repo root and this case_study are on sys.path
@@ -28,8 +29,7 @@ sys.path.insert(0, str(ROOT))
 from agents import Runner, SQLiteSession  # type: ignore
 
 from computer_use_agent import create_safe_computer_use_agent
-from tool_wrapper import check_initial_rule
-from state import IncidentState
+from rule import Rule
 
 
 async def run_interactive(model: str = "computer-use-preview") -> None:
@@ -47,6 +47,7 @@ async def run_interactive(model: str = "computer-use-preview") -> None:
 
     session = SQLiteSession("demo_computer_use_agent_interactive")
     rule_file = str(Path(__file__).parent / "rules.txt")
+    learned_rules_path = Path(__file__).parent / "learned_rules.txt"
     agent, state = create_safe_computer_use_agent(
         rule_file=rule_file,
         agent_name="Computer Use Agent (Interactive)",
@@ -80,193 +81,312 @@ async def run_interactive(model: str = "computer-use-preview") -> None:
         print("-" * 80 + "\n")
 
         try:
-            result = None
-            for attempt in range(3):
-                run_instruction = instruction
-                if attempt > 0:
-                    run_instruction = (
-                        "Continue the task using the Computer Use tool. "
-                        "Do not ask the user questions. "
-                        "You already have a browser. "
-                        "You MUST take concrete actions (click/type/keypress) now to complete: "
-                        + instruction
+            def _parse_json_object(text: str) -> dict:
+                """Best-effort parse of a JSON object from model output.
+
+                Supports raw JSON as well as fenced code blocks like:
+                ```json
+                { ... }
+                ```
+                """
+                if not isinstance(text, str):
+                    return {}
+                s = text.strip()
+
+                # Strip fenced code blocks if present
+                if s.startswith("```"):
+                    # Remove opening fence line and trailing fence
+                    s = re.sub(r"^```[a-zA-Z0-9_\-]*\s*\n", "", s)
+                    s = re.sub(r"\n```\s*$", "", s)
+                    s = s.strip()
+
+                # Try direct parse first
+                try:
+                    obj = json.loads(s)
+                    return obj if isinstance(obj, dict) else {}
+                except Exception:
+                    pass
+
+                # Fallback: extract first {...} block
+                m = re.search(r"\{[\s\S]*\}", s)
+                if not m:
+                    return {}
+                try:
+                    obj = json.loads(m.group(0))
+                    return obj if isinstance(obj, dict) else {}
+                except Exception:
+                    return {}
+
+            def _load_learned_rules() -> list[Rule]:
+                if not learned_rules_path.exists():
+                    return []
+                try:
+                    return Rule.from_file(str(learned_rules_path))
+                except Exception:
+                    return []
+
+            def _format_rules_for_safety_check() -> str:
+                lines: list[str] = []
+                for r in getattr(state, "all_rules", []):
+                    rid = getattr(r, "id", "")
+                    cond = getattr(r, "incident_condition", "")
+                    rem = getattr(r, "remediation_action", "")
+                    if not isinstance(rid, str) or not rid:
+                        continue
+                    lines.append(f"- {rid}: condition={cond} remediation={rem}")
+                return "\n".join(lines) if lines else "<none>"
+
+            def _get_actions_from_items(items: list[object]) -> list[dict]:
+                actions: list[dict] = []
+                for it in items:
+                    if not isinstance(it, dict):
+                        continue
+                    if it.get("type") != "computer_call":
+                        continue
+                    action = it.get("action")
+                    if isinstance(action, dict):
+                        actions.append(action)
+                return actions
+
+            def _has_critical_action(actions: list[dict]) -> bool:
+                critical_types = {"click", "keypress", "type"}
+                for a in actions:
+                    at = a.get("type")
+                    if at in critical_types:
+                        return True
+                return False
+
+            def _find_rule(rule_id: str):
+                for r in getattr(state, "all_rules", []):
+                    if getattr(r, "id", None) == rule_id:
+                        return r
+                return None
+
+            def _format_learned_rules(learned_rules: list[Rule]) -> str:
+                lines: list[str] = []
+                for r in learned_rules:
+                    rid = getattr(r, "id", "")
+                    cond = getattr(r, "incident_condition", "")
+                    orch = getattr(r, "orchestrate_action", "")
+                    if not isinstance(rid, str) or not rid:
+                        continue
+                    lines.append(f"- {rid}: condition={cond} orchestrate={orch}")
+                return "\n".join(lines) if lines else "<none>"
+
+            def _append_learned_rule(rule_text: str) -> None:
+                learned_rules_path.parent.mkdir(parents=True, exist_ok=True)
+                existing = ""
+                if learned_rules_path.exists():
+                    try:
+                        existing = learned_rules_path.read_text(encoding="utf-8")
+                    except Exception:
+                        existing = ""
+                prefix = "\n" if existing.endswith("\n") or not existing else "\n\n"
+                learned_rules_path.write_text(existing + prefix + rule_text.strip() + "\n", encoding="utf-8")
+
+            task_steps_max = 8
+            for step_idx in range(task_steps_max):
+                if getattr(state, "incident_detected", False):
+                    break
+
+                learned_rules = _load_learned_rules()
+
+                # Planning phase: decide the next action type WITHOUT using any tools.
+                planning_instruction = (
+                    "Plan the NEXT single computer action to progress the task. "
+                    "Do NOT use any tools. Return ONLY valid JSON with keys: "
+                    "action_type (one of screenshot/click/type/keypress/scroll/wait/unknown), "
+                    "goal (string).\n\n"
+                    "Task: "
+                    + instruction
+                )
+                planning_result = await Runner.run(
+                    agent,
+                    planning_instruction,
+                    context=state,
+                    session=session,
+                    max_turns=1,
+                )
+                plan_text = (planning_result.final_output or "").strip()
+                plan: dict = _parse_json_object(plan_text)
+                planned_action_type = plan.get("action_type", "unknown")
+
+                # Pre-check only before critical actions.
+                if planned_action_type in {"click", "type", "keypress"} and learned_rules:
+                    precheck_instruction = (
+                        "You are performing a PRE-EXECUTION safety check before a critical computer action. "
+                        "You MUST use the Computer Use tool to take a screenshot to observe the current screen, "
+                        "then decide whether the next action should be BLOCKED based on the learned rules below. "
+                        "Do NOT click/type/keypress/scroll. Only screenshot. "
+                        "Return ONLY valid JSON with keys: allow (true/false), rule_id (string or null), "
+                        "reason (string), confidence (high/medium/low).\n\n"
+                        "NEXT_ACTION_TYPE:\n"
+                        f"{planned_action_type}\n\n"
+                        "LEARNED_RULES:\n"
+                        + _format_learned_rules(learned_rules)
                     )
+                    precheck_result = await Runner.run(
+                        agent,
+                        precheck_instruction,
+                        context=state,
+                        session=session,
+                        max_turns=3,
+                    )
+                    pre_text = (precheck_result.final_output or "").strip()
+                    print("[Pre-check]", pre_text)
+                    pre: dict = _parse_json_object(pre_text)
+                    allow = bool(pre.get("allow", True))
+                    if not allow:
+                        rid = pre.get("rule_id")
+                        reason = pre.get("reason", "")
+                        desc = "Blocked by learned rule pre-check."
+                        if isinstance(rid, str) and rid:
+                            desc = desc + f" rule_id={rid}."
+                        if isinstance(reason, str) and reason:
+                            desc = desc + f" reason={reason}"
+                        state.set_incident(
+                            rule_id=str(rid) if rid else "learned_rule_precheck_block",
+                            description=desc,
+                            remediation="alert the user",
+                            severity="low",
+                        )
+                        print("[Pre-check] BLOCKED")
+                        break
+
+                step_instruction = (
+                    "You are executing the user's task using the Computer Use tool. "
+                    "Take exactly ONE concrete action now using the Computer Use tool (prefer click/type/keypress). "
+                    "Do not ask the user questions. After the one action, stop. "
+                    "Task: "
+                    + instruction
+                )
 
                 before_items = await session.get_items()
                 before_len = len(before_items)
-
-                result = await Runner.run(
+                step_result = await Runner.run(
                     agent,
-                    run_instruction,
+                    step_instruction,
                     context=state,
                     session=session,
-                    max_turns=10,
+                    max_turns=3,
                 )
 
                 after_items = await session.get_items()
                 new_items = after_items[before_len:]
+                actions = _get_actions_from_items(new_items)
 
-                computer_actions: list[str] = []
-                for item in new_items:
-                    if not isinstance(item, dict):
-                        continue
-                    if item.get("type") == "computer_call":
-                        action = item.get("action")
-                        if isinstance(action, dict):
-                            at = action.get("type")
-                            if isinstance(at, str):
-                                computer_actions.append(at)
+                print(f"[Step {step_idx + 1}/{task_steps_max}] Agent Output")
+                print(step_result.final_output)
 
-                non_screenshot_actions = [a for a in computer_actions if a != "screenshot"]
-                if non_screenshot_actions or attempt == 2:
+                if not actions:
                     break
 
-            print("[Agent Output]")
-            print(result.final_output if result is not None else "")
-
-            # -----------------------------------------------------------------
-            # ResponseSpec (Option 1): post-run evaluation for Computer Use
-            #
-            # The Agents SDK records Computer Use activity as `computer_call` /
-            # `computer_call_output` session items rather than `function_call`.
-            # ResponseSpec's core session-extractor is function_call-based, so
-            # we mirror the older ResponseSpec case study and run the initial
-            # rule check manually from the session trace.
-            # -----------------------------------------------------------------
-            # Build call_id -> (action, output) pairs
-            calls_by_id: dict[str, dict] = {}
-            outputs_by_id: dict[str, dict] = {}
-            for item in new_items:
-                if not isinstance(item, dict):
+                if not _has_critical_action(actions):
                     continue
-                if item.get("type") == "computer_call":
-                    cid = item.get("call_id")
-                    if isinstance(cid, str):
-                        calls_by_id[cid] = item
-                if item.get("type") == "computer_call_output":
-                    cid = item.get("call_id")
-                    if isinstance(cid, str):
-                        outputs_by_id[cid] = item
 
-            paired_ids = [cid for cid in calls_by_id.keys() if cid in outputs_by_id]
-            if paired_ids:
-                print(f"[ResponseSpec] Detected {len(paired_ids)} computer_call pair(s) in this run")
-            else:
-                print("[ResponseSpec] No computer_call pairs found in this run")
+                # Safety-check phase: agent must observe (screenshot) and return a JSON decision.
+                safety_instruction = (
+                    "You are performing a safety incident check after a potentially state-changing action. "
+                    "You MUST call the Computer Use tool to take a screenshot to observe the current screen. "
+                    "Then decide whether an incident has occurred under any of the following rules. "
+                    "Do NOT click/type/keypress/scroll. Only screenshot. "
+                    "Return ONLY valid JSON with keys: incident (true/false), rule_id (string or null), "
+                    "reason (string), confidence (high/medium/low).\n\n"
+                    "RULES:\n"
+                    + _format_rules_for_safety_check()
+                )
 
-            # Evaluate each computer call in order
-            any_triggered = False
-            incident_set_this_run = False
-            initial_triggered_ids: set[str] = set()
-            learned_triggered_ids: set[str] = set()
-            incident_rule_id: str | None = None
-            incident_outcome: str | None = None
-            for cid in paired_ids:
-                if incident_set_this_run:
-                    break
-                call_item = calls_by_id[cid]
-                out_item = outputs_by_id[cid]
+                check_result = await Runner.run(
+                    agent,
+                    safety_instruction,
+                    context=state,
+                    session=session,
+                    max_turns=3,
+                )
 
-                action = call_item.get("action")
-                output = out_item.get("output")
+                decision_text = (check_result.final_output or "").strip()
+                decision: dict = _parse_json_object(decision_text)
 
-                tool_name = "computer"
-                tool_args = {"action": action} if action is not None else {}
+                incident = bool(decision.get("incident", False))
+                rule_id = decision.get("rule_id")
+                reason = decision.get("reason", "")
+                confidence = decision.get("confidence", "")
+                print("[Safety Check]", decision_text)
 
-                # Output can be huge (base64 screenshots). Store a trimmed preview.
-                if isinstance(output, dict):
-                    output_preview = dict(output)
-                    image_url = output_preview.get("image_url")
-                    if isinstance(image_url, str) and len(image_url) > 200:
-                        output_preview["image_url"] = image_url[:200] + "...[TRUNCATED]"
-                    tool_result = json.dumps(output_preview, ensure_ascii=False)
-                else:
-                    tool_result = repr(output)
-
-                if isinstance(tool_result, str) and len(tool_result) > 1000:
-                    tool_result = tool_result[:1000] + "...[TRUNCATED]"
-
-                state.add_tool_call(tool_name, tool_args, tool_result)
-
-                # Use a minimal, truncated view of history for LLM-based rule evaluation.
-                eval_state = IncidentState(all_rules=state.all_rules, session=state.session)
-                eval_state.learned_rules = list(getattr(state, "learned_rules", []))
-                for h in state.get_recent_history(n=5):
-                    if not isinstance(h, dict):
-                        continue
-                    h_tool = h.get("tool", "")
-                    h_args = h.get("arguments", {})
-                    h_res = h.get("result", "")
-                    if isinstance(h_res, str) and len(h_res) > 1000:
-                        h_res = h_res[:1000] + "...[TRUNCATED]"
-                    eval_state.add_tool_call(str(h_tool), h_args if isinstance(h_args, dict) else {}, str(h_res))
-
-                # 1) Initial rules (rules.txt)
-                initial_triggered_rules = state.get_triggered_rules_for_tool(tool_name)
-                if initial_triggered_rules:
-                    any_triggered = True
-                    for r in initial_triggered_rules:
-                        if isinstance(getattr(r, "id", None), str):
-                            initial_triggered_ids.add(r.id)
-                for rule in initial_triggered_rules:
-                    evaluation = await check_initial_rule(
-                        rule,
-                        tool_name,
-                        tool_args,
-                        tool_result,
-                        eval_state,
-                    )
-                    outcome = evaluation.get("outcome", "NO_RISK")
-                    if outcome == "NO_RISK":
-                        continue
-
-                    reasoning = evaluation.get("reasoning", "")
-                    description = (
-                        f"The executed operation matched the condition of rule "
-                        f"'{rule.id}': {rule.incident_condition}"
-                    )
-                    if reasoning:
-                        description = description + f" Reasoning: {reasoning}"
+                if incident:
+                    remediation = ""
+                    severity = "medium"
+                    if isinstance(rule_id, str) and rule_id:
+                        r = _find_rule(rule_id)
+                        if r is not None:
+                            remediation = getattr(r, "remediation_action", "")
+                    desc = "Incident detected by safety check."
+                    if isinstance(rule_id, str) and rule_id:
+                        desc = desc + f" rule_id={rule_id}."
+                    if isinstance(reason, str) and reason:
+                        desc = desc + f" reason={reason}"
+                    if isinstance(confidence, str) and confidence:
+                        desc = desc + f" confidence={confidence}"
 
                     state.set_incident(
-                        rule_id=rule.id,
-                        description=description,
-                        remediation=rule.remediation_action,
-                        severity="medium",
+                        rule_id=str(rule_id) if rule_id else "manual_safety_check",
+                        description=desc,
+                        remediation=remediation,
+                        severity=severity,
                     )
-                    incident_set_this_run = True
-                    incident_rule_id = rule.id
-                    incident_outcome = str(outcome)
+
+                    remediation_instruction = (
+                        "An incident has been detected. Follow the incident response protocol. "
+                        "Carry out the remediation required by the triggered rule. "
+                        "Use the Computer Use tool only if needed to mitigate/contain the issue. "
+                        "When remediation is complete, call mark_remediation_complete."
+                    )
+                    remediation_result = await Runner.run(
+                        agent,
+                        remediation_instruction,
+                        context=state,
+                        session=session,
+                        max_turns=6,
+                    )
+                    print("[Remediation Output]")
+                    print(remediation_result.final_output)
+
+                    # Eradication: learn a new prevention rule in the same DSL style as rules.txt
+                    eradication_instruction = (
+                        "You are performing ERADICATION after an incident. "
+                        "Write ONE learned rule in the exact DSL format below (same style as rules.txt). "
+                        "The learned rule should be specific enough to prevent repeating the incident, "
+                        "but not overly broad. It must trigger on tool 'computer'. "
+                        "Use orchestrate to describe how to block/stop the task before the risky action. "
+                        "Return ONLY the rule text (no extra commentary).\n\n"
+                        "DSL FORMAT:\n"
+                        "rule @<unique_id>\n"
+                        "trigger\n"
+                        "    \"computer\"\n"
+                        "check\n"
+                        "    \"<condition>\"\n"
+                        "orchestrate\n"
+                        "    \"<action>\"\n"
+                        "end\n\n"
+                        "INCIDENT_CONTEXT:\n"
+                        f"- user_task: {instruction}\n"
+                        f"- triggered_rule_id: {rule_id}\n"
+                        f"- reason: {reason}\n"
+                    )
+                    eradication_result = await Runner.run(
+                        agent,
+                        eradication_instruction,
+                        context=state,
+                        session=session,
+                        max_turns=2,
+                    )
+                    learned_rule_text = (eradication_result.final_output or "").strip()
+                    if learned_rule_text.startswith("rule @"):
+                        _append_learned_rule(learned_rule_text)
+                        print(f"[Eradication] Appended learned rule to {learned_rules_path}")
+                    else:
+                        print("[Eradication] Skipped: model did not return a valid rule block")
                     break
-
-                # 2) Learned rules (learned_rules.txt)
-                # NOTE: In option-1 post-run mode, learned rules cannot *block* execution
-                # because ComputerTool calls already happened. We only surface matches.
-                learned_rules = list(getattr(state, "learned_rules", []))
-                learned_triggered = [r for r in learned_rules if getattr(r, "trigger_tool", None) == tool_name]
-                if learned_triggered and not incident_set_this_run:
-                    any_triggered = True
-                    for r in learned_triggered:
-                        if isinstance(getattr(r, "id", None), str):
-                            learned_triggered_ids.add(r.id)
-
-            if initial_triggered_ids:
-                print(f"[ResponseSpec] Initial rules triggered by '{tool_name}': {sorted(initial_triggered_ids)}")
-            if learned_triggered_ids:
-                print(
-                    f"[ResponseSpec] Learned rules matched tool '{tool_name}' (post-run only; no pre-block): "
-                    f"{sorted(learned_triggered_ids)}"
-                )
-            if incident_rule_id is not None:
-                print(f"[ResponseSpec] INCIDENT set by rule={incident_rule_id} outcome={incident_outcome}")
-
-            if not any_triggered:
-                learned_tools = {getattr(r, "trigger_tool", "") for r in getattr(state, "learned_rules", [])}
-                print(
-                    "[ResponseSpec] No rules triggered. "
-                    f"Recorded tool_name='{tool_name}'. "
-                    f"learned_rules trigger_tool(s)={sorted([t for t in learned_tools if t])}"
-                )
 
             after_items = await session.get_items()
             new_items = after_items[before_len:]
