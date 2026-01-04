@@ -4,9 +4,26 @@ Handles incident detection using LLM-based natural language evaluation.
 """
 
 import json
+import os
+import time
 from typing import Dict, Any, Optional, Tuple
 from rule import Rule
 from state import IncidentState
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    val = os.getenv(name)
+    if val is None:
+        return default
+    return val.strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+
+
+DEBUG_LLM_API = _env_flag("RESPONSESPEC_DEBUG_LLM", default=False)
+
+
+def set_llm_api_debug(enabled: bool = True) -> None:
+    global DEBUG_LLM_API
+    DEBUG_LLM_API = enabled
 
 
 class IncidentDetector:
@@ -61,7 +78,7 @@ class IncidentDetector:
         )
         
         # Call LLM for detection
-        result = self._call_llm_for_detection(detection_prompt)
+        result = self._call_llm_for_detection(detection_prompt, stage="postcheck")
         
         if result.get("incident_detected", False):
             return True, {
@@ -107,12 +124,15 @@ RESPONSE FORMAT (JSON):
 Be precise and only flag actual incidents that match the rule conditions.
 """
     
-    def _call_llm_for_detection(self, prompt: str) -> Dict[str, Any]:
+    def _call_llm_for_detection(self, prompt: str, stage: Optional[str] = None) -> Dict[str, Any]:
         """
         Call LLM to perform incident detection using OpenAI API.
         
         Uses structured output (JSON mode) for reliable parsing.
         """
+        start_ts = time.time()
+        model = "gpt-4o"
+        stage_value = stage or "detector"
         try:
             if self.llm_client:
                 # Use provided LLM client
@@ -121,25 +141,42 @@ Be precise and only flag actual incidents that match the rule conditions.
                 # Use default OpenAI client (requires OPENAI_API_KEY env var)
                 from openai import OpenAI
                 client = OpenAI()
+
+            if DEBUG_LLM_API:
+                prompt_chars = len(prompt) if isinstance(prompt, str) else 0
+                print(
+                    f"[LLM API START] kind=detector stage={stage_value} model={model} prompt_chars={prompt_chars}"
+                )
             
             # Call OpenAI with JSON mode for structured output
-            response = client.chat.completions.create(
-                model="gpt-4o",  # Use gpt-4o for better performance
-                messages=[
+            request_kwargs = {
+                "model": model,
+                "messages": [
                     {
-                        "role": "system", 
-                        "content": "You are a security incident detection system. Analyze actions against security rules and respond in JSON format."
+                        "role": "system",
+                        "content": "You are a security incident detection system. Analyze actions against security rules and respond in JSON format.",
                     },
                     {
-                        "role": "user", 
-                        "content": prompt
-                    }
+                        "role": "user",
+                        "content": prompt,
+                    },
                 ],
-                response_format={"type": "json_object"},
-                temperature=0  # Use 0 for deterministic results
-            )
+                "response_format": {"type": "json_object"},
+            }
+
+            # Some models (e.g., gpt-5-mini) only support the default temperature.
+            if not str(model).startswith("gpt-5"):
+                request_kwargs["temperature"] = 0
+
+            response = client.chat.completions.create(**request_kwargs)
             
             result = json.loads(response.choices[0].message.content)
+
+            if DEBUG_LLM_API:
+                duration_ms = int((time.time() - start_ts) * 1000)
+                print(
+                    f"[LLM API END] kind=detector stage={stage_value} model={model} duration_ms={duration_ms}"
+                )
             
             # Validate required fields
             if "incident_detected" not in result:
@@ -154,6 +191,11 @@ Be precise and only flag actual incidents that match the rule conditions.
             return result
             
         except Exception as e:
+            if DEBUG_LLM_API:
+                duration_ms = int((time.time() - start_ts) * 1000)
+                print(
+                    f"[LLM API END] kind=detector stage={stage_value} model={model} duration_ms={duration_ms} status=error"
+                )
             print(f"[IncidentDetector] Error calling LLM: {e}")
             # Return safe default on error
             return {

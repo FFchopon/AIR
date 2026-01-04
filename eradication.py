@@ -8,11 +8,13 @@ This module implements the "Eradicate" phase of incident response:
 """
 
 import json
+import time
 from typing import Dict, Any, List
 from pydantic import BaseModel
 from agents import Agent, Runner
 from rule import Rule
 from state import IncidentState
+import interpreter
 
 
 # ========================================
@@ -111,19 +113,27 @@ REQUIREMENTS
 - Match a detectable pattern in tool arguments (especially python_repl code).
 - High precision (minimize false positives).
 """
-    print(f"\n{'='*80}")
-    print(f"[Eradication] \n{incident_prompt}")
-    print(f"{'='*80}")
     
     print(f"[Eradication] Calling Rule Generator Agent...")
     
     # Call Rule Generator Agent
     rule_generator = get_rule_generator_agent()
+    start_ts = time.time()
+    if interpreter.DEBUG_LLM_API:
+        prompt_chars = len(incident_prompt) if isinstance(incident_prompt, str) else 0
+        print(
+            f"[LLM API START] kind=agent stage=eradication agent={rule_generator.name} prompt_chars={prompt_chars}"
+        )
     result = await Runner.run(
         rule_generator,
         incident_prompt,
         context=state
     )
+    if interpreter.DEBUG_LLM_API:
+        duration_ms = int((time.time() - start_ts) * 1000)
+        print(
+            f"[LLM API END] kind=agent stage=eradication agent={rule_generator.name} duration_ms={duration_ms}"
+        )
     
     learned_rule_data = result.final_output
     
@@ -222,7 +232,7 @@ RESPONSE FORMAT (JSON):
     # Call LLM for pattern matching
     from interpreter import IncidentDetector
     detector = IncidentDetector()
-    response = detector._call_llm_for_detection(check_prompt)
+    response = detector._call_llm_for_detection(check_prompt, stage="precheck")
     
     should_block = response.get("should_block", False)
     reasoning = response.get("reasoning", "Pattern matched")

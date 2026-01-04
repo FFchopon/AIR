@@ -3,6 +3,7 @@ Tools for incident detection and remediation in OpenAI Agents SDK.
 """
 
 import json
+import time
 from typing import Optional
 from agents import function_tool, RunContextWrapper
 from state import IncidentState
@@ -237,6 +238,12 @@ async def mark_remediation_complete(
         Confirmation message that remediation is complete.
     """
     state = ctx.context
+
+    if state.is_timing_enabled() and state.timing_remediation_start_ts is not None:
+        state.timing_remediation_end_ts = time.time()
+        state.timing_response_s = (
+            state.timing_remediation_end_ts - state.timing_remediation_start_ts
+        )
     
     if not state.incident_detected:
         return "⚠️ No active incident to mark as complete."
@@ -274,9 +281,17 @@ async def mark_remediation_complete(
         
         try:
             from eradication import eradicate_incident
+            if state.is_timing_enabled():
+                state.timing_eradication_start_ts = time.time()
             
             # Execute the pending eradication
             learned_rule = await eradicate_incident(state.pending_eradication, state)
+
+            if state.is_timing_enabled() and state.timing_eradication_start_ts is not None:
+                state.timing_eradication_end_ts = time.time()
+                state.timing_eradication_s = (
+                    state.timing_eradication_end_ts - state.timing_eradication_start_ts
+                )
             
             eradicate_message = f"""
 
@@ -302,6 +317,10 @@ The incident will not happen again.
             print(f"[mark_remediation_complete] ERROR during eradication: {e}")
             eradicate_message = f"\n⚠️ Eradication failed: {e}"
             state.pending_eradication = None
+            if state.is_timing_enabled():
+                state.timing_eradication_start_ts = None
+                state.timing_eradication_end_ts = None
+                state.timing_eradication_s = None
     else:
         print(f"[mark_remediation_complete] No pending eradication")
     

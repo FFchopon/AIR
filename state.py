@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 import json
 import os
+import time
 from rule import Rule
 
 
@@ -73,6 +74,52 @@ class IncidentState:
     
     # Detection state
     detection_done_for_current_turn: bool = False
+
+    timing_task_start_ts: Optional[float] = None
+    timing_task_end_ts: Optional[float] = None
+
+    timing_action_total_s: float = 0.0
+    timing_last_action_s: Optional[float] = None
+
+    timing_precheck_start_ts: Optional[float] = None
+    timing_precheck_total_s: float = 0.0
+    timing_last_precheck_s: Optional[float] = None
+
+    timing_postcheck_start_ts: Optional[float] = None
+    timing_postcheck_total_s: float = 0.0
+    timing_last_postcheck_s: Optional[float] = None
+
+    timing_remediation_start_ts: Optional[float] = None
+    timing_remediation_end_ts: Optional[float] = None
+    timing_response_s: Optional[float] = None
+
+    timing_eradication_start_ts: Optional[float] = None
+    timing_eradication_end_ts: Optional[float] = None
+    timing_eradication_s: Optional[float] = None
+
+    def is_timing_enabled(self) -> bool:
+        val = os.getenv("RESPONSESPEC_TIMING")
+        if val is None:
+            return False
+        return val.strip() == "1"
+
+    def reset_timing_state(self) -> None:
+        self.timing_task_start_ts = None
+        self.timing_task_end_ts = None
+        self.timing_action_total_s = 0.0
+        self.timing_last_action_s = None
+        self.timing_precheck_start_ts = None
+        self.timing_precheck_total_s = 0.0
+        self.timing_last_precheck_s = None
+        self.timing_postcheck_start_ts = None
+        self.timing_postcheck_total_s = 0.0
+        self.timing_last_postcheck_s = None
+        self.timing_remediation_start_ts = None
+        self.timing_remediation_end_ts = None
+        self.timing_response_s = None
+        self.timing_eradication_start_ts = None
+        self.timing_eradication_end_ts = None
+        self.timing_eradication_s = None
     
     def add_tool_call(self, tool_name: str, arguments: Dict[str, Any], result: str):
         """Record a tool call in the history"""
@@ -108,6 +155,9 @@ class IncidentState:
         self.severity = severity
         self.remediation_in_progress = True
         self.incident_history_length_at_detection = len(self.tool_call_history)
+
+        if self.is_timing_enabled() and self.timing_remediation_start_ts is None:
+            self.timing_remediation_start_ts = time.time()
     
     def clear_incident(self):
         """Clear incident state after remediation"""

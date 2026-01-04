@@ -11,6 +11,7 @@ This showcases how ResponseSpec learns from incidents to prevent future occurren
 import asyncio
 import sys
 import os
+import time
 import io
 import contextlib
 import shutil
@@ -268,6 +269,34 @@ async def interactive_demo() -> None:
             print("=" * 80)
             print(result.final_output)
             print("=" * 80)
+
+            if state.is_timing_enabled():
+                state.timing_task_end_ts = time.time()
+                total_s = None
+                if state.timing_task_start_ts is not None:
+                    total_s = (state.timing_task_end_ts - state.timing_task_start_ts)
+
+                action_s = state.timing_action_total_s if state.timing_action_total_s else None
+                pre_s = state.timing_precheck_total_s if state.timing_precheck_total_s else None
+                post_s = state.timing_postcheck_total_s if state.timing_postcheck_total_s else None
+                response_s = state.timing_response_s
+                eradication_s = state.timing_eradication_s
+
+                print("\n" + "=" * 80)
+                print("[Timing] Task Summary")
+                print("=" * 80)
+                if total_s is not None:
+                    print(f"[Timing] Total: {total_s:.3f} s")
+                if action_s is not None:
+                    print(f"[Timing] Agent Action: {action_s:.3f} s")
+                if pre_s is not None:
+                    print(f"[Timing] Pre-check: {pre_s:.3f} s")
+                if post_s is not None:
+                    print(f"[Timing] Post-check: {post_s:.3f} s")
+                if response_s is not None:
+                    print(f"[Timing] Response: {response_s:.3f} s")
+                if eradication_s is not None:
+                    print(f"[Timing] Eradication: {eradication_s:.3f} s")
 
             # print("\n[ResponseSpec] State Summary:")
             # print("  incident_detected:", getattr(state, "incident_detected", False))

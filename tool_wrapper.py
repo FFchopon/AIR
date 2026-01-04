@@ -10,6 +10,7 @@ This module wraps base tools to provide:
 import json
 import inspect
 import functools
+import time
 from typing import Callable, List, get_type_hints
 from agents import function_tool, RunContextWrapper, Tool
 from rule import Rule
@@ -129,10 +130,17 @@ def create_safe_tool_with_eradication(
             
             # Execute directly without checks
             try:
+                action_start_ts = None
+                if state.is_timing_enabled():
+                    action_start_ts = time.time()
                 if inspect.iscoroutinefunction(base_func):
                     result = await base_func(**kwargs)
                 else:
                     result = base_func(**kwargs)
+                if action_start_ts is not None:
+                    elapsed_s = time.time() - action_start_ts
+                    state.timing_last_action_s = elapsed_s
+                    state.timing_action_total_s += elapsed_s
                 print(f"[Remediation Mode] ✅ Orchestrate action completed")
                 return result
             except Exception as e:
@@ -144,6 +152,11 @@ def create_safe_tool_with_eradication(
         # ========================================
 
         learned_rules_for_tool = state.get_learned_rules_for_tool(tool_name)
+
+        timing_precheck_started = False
+        if state.is_timing_enabled() and learned_rules_for_tool:
+            state.timing_precheck_start_ts = time.time()
+            timing_precheck_started = True
 
         if learned_rules_for_tool:
             blocked_rule = None
@@ -167,6 +180,12 @@ def create_safe_tool_with_eradication(
                 print(f"[Pre-check] BLOCKED by learned rule for {tool_name}")
                 print(f"{'='*80}")
                 print(f"[Pre-check] Rule ID: {blocked_rule.id}")
+
+                if timing_precheck_started and state.timing_precheck_start_ts is not None:
+                    elapsed_s = time.time() - state.timing_precheck_start_ts
+                    state.timing_last_precheck_s = elapsed_s
+                    state.timing_precheck_total_s += elapsed_s
+                    state.timing_precheck_start_ts = None
                 return f"""
 OPERATION BLOCKED BY LEARNED SAFETY RULE
 
@@ -179,6 +198,12 @@ When replying to the user:
 - You MUST NOT suggest or attempt to bypass, evade, or weaken the security checks.
 - Keep your reply brief (2-5 sentences).
 """
+
+        if timing_precheck_started and state.timing_precheck_start_ts is not None:
+            elapsed_s = time.time() - state.timing_precheck_start_ts
+            state.timing_last_precheck_s = elapsed_s
+            state.timing_precheck_total_s += elapsed_s
+            state.timing_precheck_start_ts = None
         
         # ========================================
         # ⭐ EXECUTION: Run the tool (only if passed pre-check)
@@ -191,10 +216,17 @@ When replying to the user:
         
         try:
             # Call the base function (handle both sync and async)
+            action_start_ts = None
+            if state.is_timing_enabled():
+                action_start_ts = time.time()
             if inspect.iscoroutinefunction(base_func):
                 result = await base_func(**kwargs)
             else:
                 result = base_func(**kwargs)
+            if action_start_ts is not None:
+                elapsed_s = time.time() - action_start_ts
+                state.timing_last_action_s = elapsed_s
+                state.timing_action_total_s += elapsed_s
             print(f"[Execution] ✅ Completed successfully")
         except Exception as e:
             print(f"[Execution] ❌ Error: {e}")
@@ -210,6 +242,14 @@ When replying to the user:
         print(f"\n{'='*80}")
         print(f"[Post-check] Checking initial rules for {tool_name}")
         print(f"{'='*80}")
+
+        timing_postcheck_started = False
+        if state.is_timing_enabled():
+            for initial_rule in initial_rules:
+                if initial_rule.triggered_by_tool(tool_name):
+                    state.timing_postcheck_start_ts = time.time()
+                    timing_postcheck_started = True
+                    break
 
         primary_triggered_rule = None
         primary_evaluation = None
@@ -323,6 +363,12 @@ When replying to the user:
             # No relevant rules for this tool call; clear any turn-level state
             # so the agent stays in normal mode.
             state.reset_turn_state()
+
+        if timing_postcheck_started and state.timing_postcheck_start_ts is not None:
+            elapsed_s = time.time() - state.timing_postcheck_start_ts
+            state.timing_last_postcheck_s = elapsed_s
+            state.timing_postcheck_total_s += elapsed_s
+            state.timing_postcheck_start_ts = None
         
         # print(f"{'='*80}\n")
         
@@ -415,7 +461,7 @@ RESPONSE FORMAT (JSON):
     # print("=" * 80 + "\n")
 
     detector = get_detector()
-    response = detector._call_llm_for_detection(detection_prompt)
+    response = detector._call_llm_for_detection(detection_prompt, stage="postcheck")
 
     # Basic sanitization / defaults
     outcome = response.get("outcome", "NO_RISK")
