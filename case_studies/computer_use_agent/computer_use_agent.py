@@ -15,9 +15,15 @@ NOTE: To use this agent you must:
 from __future__ import annotations
 
 import asyncio
+import sys
+from pathlib import Path
 from typing import Any, Literal, Union
 
 from playwright.async_api import Browser, Page, Playwright, async_playwright
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from agents import (
     Agent,
@@ -207,18 +213,7 @@ class LocalPlaywrightComputer(AsyncComputer):
 # Base instructions shared by the plain and ResponseSpec-integrated
 # Computer Use agents.
 COMPUTER_USE_BASE_INSTRUCTIONS = (
-    "You are a computer use assistant. "
-    "You control the user's computer using the Computer Use tool. "
-    "Always explain what you are about to do before you do it, and "
-    "prefer small, incremental steps over large, irreversible ones. "
-    "Avoid risky operations such as deleting files, changing system "
-    "settings, or installing software unless the user explicitly "
-    "requests it and the intent is unambiguous. "
-    "Once the user's request has clearly been fulfilled and the "
-    "result is visible on screen, stop using the Computer Use tool "
-    "and return a concise natural-language answer. Avoid taking "
-    "excessive screenshots or waiting once the goal has been "
-    "achieved."
+    "You are a computer use assistant. Always explain what you are about to do before you do it."
 )
 
 
@@ -324,20 +319,24 @@ def create_safe_computer_use_agent(
         base_instructions = COMPUTER_USE_BASE_INSTRUCTIONS
 
     def dynamic_instructions(context, agent) -> str:  # type: ignore[override]
-        incident_instructions = ResponseOrchestrator.generate_dynamic_instructions(
-            context.context
-        )
+        state = context.context
 
-        # If an incident is active, prioritize incident-response protocol
-        if context.context.incident_detected:
-            return incident_instructions
+        # Reuse the ResponseSpec base instructions, but replace the first
+        # sentence so the agent is explicitly framed as a computer-use agent.
+        rs_base = ResponseOrchestrator.generate_base_instructions(state)
+        rs_lines = rs_base.splitlines()
+        for i, line in enumerate(rs_lines):
+            if line.strip():
+                rs_lines[i] = str(base_instructions).strip()
+                break
+        merged_base = "\n".join(rs_lines)
 
-        # Otherwise, run normal computer use behavior with safety protocol
-        # appended.
-        return f"""{base_instructions}
+        # If incident detected and remediation not complete, append the
+        # standard remediation prompt.
+        if state.incident_detected and not state.remediation_completed:
+            return merged_base + "\n" + ResponseOrchestrator.generate_remediation_prompt(state)
 
-{incident_instructions}
-"""
+        return merged_base
 
     # Safety-related tools from ResponseSpec. For this Computer Use case we
     # do not wrap the ComputerTool with ``create_safe_tool_with_eradication``

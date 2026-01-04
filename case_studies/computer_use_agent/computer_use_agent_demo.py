@@ -81,6 +81,12 @@ async def run_interactive(model: str = "computer-use-preview") -> None:
         print("-" * 80 + "\n")
 
         try:
+            def _banner(title: str) -> None:
+                bar = "=" * 80
+                print("\n" + bar)
+                print(title)
+                print(bar)
+
             def _parse_json_object(text: str) -> dict:
                 """Best-effort parse of a JSON object from model output.
 
@@ -185,6 +191,7 @@ async def run_interactive(model: str = "computer-use-preview") -> None:
                 learned_rules_path.write_text(existing + prefix + rule_text.strip() + "\n", encoding="utf-8")
 
             task_steps_max = 8
+            before_len: int | None = None
             for step_idx in range(task_steps_max):
                 if getattr(state, "incident_detected", False):
                     break
@@ -192,14 +199,27 @@ async def run_interactive(model: str = "computer-use-preview") -> None:
                 learned_rules = _load_learned_rules()
 
                 # Planning phase: decide the next action type WITHOUT using any tools.
-                planning_instruction = (
-                    "Plan the NEXT single computer action to progress the task. "
-                    "Do NOT use any tools. Return ONLY valid JSON with keys: "
-                    "action_type (one of screenshot/click/type/keypress/scroll/wait/unknown), "
-                    "goal (string).\n\n"
-                    "Task: "
-                    + instruction
-                )
+                _banner(f"PLANNING (step {step_idx + 1}/{task_steps_max})")
+                planning_instruction = f"""
+Plan the NEXT single computer action to progress the task.
+
+CURRENT TASK:
+{instruction}
+
+TASK:
+- Decide the NEXT single computer action type to progress the task.
+- Provide a short goal describing what that action is intended to accomplish.
+
+CONSTRAINTS:
+- Do NOT use any tools.
+- Return ONLY valid JSON.
+
+RESPONSE FORMAT (JSON):
+{{
+  "action_type": "screenshot" | "click" | "type" | "keypress" | "scroll" | "wait" | "unknown",
+  "goal": "string"
+}}
+"""
                 planning_result = await Runner.run(
                     agent,
                     planning_instruction,
@@ -210,42 +230,52 @@ async def run_interactive(model: str = "computer-use-preview") -> None:
                 plan_text = (planning_result.final_output or "").strip()
                 plan: dict = _parse_json_object(plan_text)
                 planned_action_type = plan.get("action_type", "unknown")
+                planned_action_goal = plan.get("goal", "")
 
                 # Pre-check only before critical actions.
                 if planned_action_type in {"click", "type", "keypress"} and learned_rules:
-                    precheck_instruction = (
-                        "You are performing a PRE-EXECUTION safety check before a critical computer action. "
-                        "You MUST use the Computer Use tool to take a screenshot to observe the current screen, "
-                        "then decide whether the next action should be BLOCKED based on the learned rules below. "
-                        "Do NOT click/type/keypress/scroll. Only screenshot. "
-                        "Return ONLY valid JSON with keys: allow (true/false), rule_id (string or null), "
-                        "reason (string), confidence (high/medium/low).\n\n"
-                        "NEXT_ACTION_TYPE:\n"
-                        f"{planned_action_type}\n\n"
-                        "LEARNED_RULES:\n"
-                        + _format_learned_rules(learned_rules)
-                    )
+                    _banner("PRE-CHECK (learned rules)")
+                    precheck_instruction = f"""
+You are performing a PRE-EXECUTION safety check before a critical computer action.
+
+LEARNED RULES:
+{_format_learned_rules(learned_rules)}
+
+PLANNED NEXT ACTION:
+- action_type: {planned_action_type}
+- goal: {planned_action_goal}
+
+TASK:
+Pre-check the PLANNED NEXT ACTION against the learned rules.
+If it matches a rule, set "allow" to false and report the matching rule_id.
+
+CONSTRAINTS:
+- Do NOT use any tools.
+
+RESPONSE FORMAT (JSON):
+{{
+  "allow": true or false,
+  "reason": "brief explanation"
+}}
+"""
                     precheck_result = await Runner.run(
                         agent,
                         precheck_instruction,
                         context=state,
                         session=session,
-                        max_turns=3,
+                        max_turns=1,
                     )
                     pre_text = (precheck_result.final_output or "").strip()
                     print("[Pre-check]", pre_text)
                     pre: dict = _parse_json_object(pre_text)
                     allow = bool(pre.get("allow", True))
                     if not allow:
-                        rid = pre.get("rule_id")
                         reason = pre.get("reason", "")
                         desc = "Blocked by learned rule pre-check."
-                        if isinstance(rid, str) and rid:
-                            desc = desc + f" rule_id={rid}."
                         if isinstance(reason, str) and reason:
                             desc = desc + f" reason={reason}"
                         state.set_incident(
-                            rule_id=str(rid) if rid else "learned_rule_precheck_block",
+                            rule_id="learned_rule_precheck_block",
                             description=desc,
                             remediation="alert the user",
                             severity="low",
@@ -253,13 +283,18 @@ async def run_interactive(model: str = "computer-use-preview") -> None:
                         print("[Pre-check] BLOCKED")
                         break
 
-                step_instruction = (
-                    "You are executing the user's task using the Computer Use tool. "
-                    "Take exactly ONE concrete action now using the Computer Use tool (prefer click/type/keypress). "
-                    "Do not ask the user questions. After the one action, stop. "
-                    "Task: "
-                    + instruction
-                )
+                _banner(f"EXECUTION (step {step_idx + 1}/{task_steps_max})")
+                step_instruction = f"""
+You are executing the user's task using the Computer Use tool.
+
+TASK:
+{instruction}
+
+REQUIREMENTS:
+- Take exactly ONE concrete action now using the Computer Use tool (prefer click/type/keypress).
+- Do not ask the user questions.
+- After the one action, stop.
+"""
 
                 before_items = await session.get_items()
                 before_len = len(before_items)
@@ -285,16 +320,29 @@ async def run_interactive(model: str = "computer-use-preview") -> None:
                     continue
 
                 # Safety-check phase: agent must observe (screenshot) and return a JSON decision.
-                safety_instruction = (
-                    "You are performing a safety incident check after a potentially state-changing action. "
-                    "You MUST call the Computer Use tool to take a screenshot to observe the current screen. "
-                    "Then decide whether an incident has occurred under any of the following rules. "
-                    "Do NOT click/type/keypress/scroll. Only screenshot. "
-                    "Return ONLY valid JSON with keys: incident (true/false), rule_id (string or null), "
-                    "reason (string), confidence (high/medium/low).\n\n"
-                    "RULES:\n"
-                    + _format_rules_for_safety_check()
-                )
+                _banner("POST-CHECK (safety check)")
+                safety_instruction = f"""
+You are performing a safety incident check after a potentially state-changing action.
+
+TASK:
+- You MUST call the Computer Use tool to take a screenshot to observe the current screen.
+- Then decide whether an incident has occurred under any of the following rules.
+
+CONSTRAINTS:
+- Do NOT click/type/keypress/scroll. Only screenshot.
+- Return ONLY valid JSON.
+
+RULES:
+{_format_rules_for_safety_check()}
+
+RESPONSE FORMAT (JSON):
+{{
+  "incident": true or false,
+  "rule_id": "string" or null,
+  "reason": "string",
+  "confidence": "high" | "medium" | "low"
+}}
+"""
 
                 check_result = await Runner.run(
                     agent,
@@ -314,6 +362,7 @@ async def run_interactive(model: str = "computer-use-preview") -> None:
                 print("[Safety Check]", decision_text)
 
                 if incident:
+                    _banner("REMEDIATION")
                     remediation = ""
                     severity = "medium"
                     if isinstance(rule_id, str) and rule_id:
@@ -335,12 +384,18 @@ async def run_interactive(model: str = "computer-use-preview") -> None:
                         severity=severity,
                     )
 
-                    remediation_instruction = (
-                        "An incident has been detected. Follow the incident response protocol. "
-                        "Carry out the remediation required by the triggered rule. "
-                        "Use the Computer Use tool only if needed to mitigate/contain the issue. "
-                        "When remediation is complete, call mark_remediation_complete."
-                    )
+                    remediation_instruction = """
+An incident has been detected. Follow the incident response protocol.
+
+TASK:
+- Carry out the remediation required by the triggered rule.
+
+CONSTRAINTS:
+- Use the Computer Use tool only if needed to mitigate/contain the issue.
+
+FINISH:
+- When remediation is complete, call mark_remediation_complete.
+"""
                     remediation_result = await Runner.run(
                         agent,
                         remediation_instruction,
@@ -352,27 +407,34 @@ async def run_interactive(model: str = "computer-use-preview") -> None:
                     print(remediation_result.final_output)
 
                     # Eradication: learn a new prevention rule in the same DSL style as rules.txt
-                    eradication_instruction = (
-                        "You are performing ERADICATION after an incident. "
-                        "Write ONE learned rule in the exact DSL format below (same style as rules.txt). "
-                        "The learned rule should be specific enough to prevent repeating the incident, "
-                        "but not overly broad. It must trigger on tool 'computer'. "
-                        "Use orchestrate to describe how to block/stop the task before the risky action. "
-                        "Return ONLY the rule text (no extra commentary).\n\n"
-                        "DSL FORMAT:\n"
-                        "rule @<unique_id>\n"
-                        "trigger\n"
-                        "    \"computer\"\n"
-                        "check\n"
-                        "    \"<condition>\"\n"
-                        "orchestrate\n"
-                        "    \"<action>\"\n"
-                        "end\n\n"
-                        "INCIDENT_CONTEXT:\n"
-                        f"- user_task: {instruction}\n"
-                        f"- triggered_rule_id: {rule_id}\n"
-                        f"- reason: {reason}\n"
-                    )
+                    _banner("ERADICATION")
+                    eradication_instruction = f"""
+You are performing ERADICATION after an incident.
+
+TASK:
+Write ONE learned rule in the exact DSL format below (same style as rules.txt).
+
+REQUIREMENTS:
+- The learned rule should be specific enough to prevent repeating the incident, but not overly broad.
+- It must trigger on tool "computer".
+- Use orchestrate to describe how to block/stop the task before the risky action.
+- Return ONLY the rule text (no extra commentary).
+
+DSL FORMAT:
+rule @<unique_id>
+trigger
+    "computer"
+check
+    "<condition>"
+orchestrate
+    "<action>"
+end
+
+INCIDENT_CONTEXT:
+- user_task: {instruction}
+- triggered_rule_id: {rule_id}
+- reason: {reason}
+"""
                     eradication_result = await Runner.run(
                         agent,
                         eradication_instruction,
@@ -387,6 +449,9 @@ async def run_interactive(model: str = "computer-use-preview") -> None:
                     else:
                         print("[Eradication] Skipped: model did not return a valid rule block")
                     break
+
+            if before_len is None:
+                continue
 
             after_items = await session.get_items()
             new_items = after_items[before_len:]
