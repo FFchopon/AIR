@@ -67,22 +67,11 @@ If an incident is confirmed, you will receive INCIDENT RESPONSE instructions.
         Returns:
             Natural language prompt for remediation
         """
-        severity_emoji = {
-            "low": "ℹ️",
-            "medium": "⚠️",
-            "high": "🔴",
-            "critical": "🚨"
-        }
-        
-        emoji = severity_emoji.get(state.severity, "⚠️")
-        
         return f"""
-{emoji} INCIDENT RESPONSE MODE ACTIVATED {emoji}
+INCIDENT RESPONSE MODE ACTIVATED
 
 INCIDENT DETECTED:
 Rule: {state.triggered_rule_id}
-Severity: {state.severity.upper()}
-Description: {state.incident_description}
 
 REQUIRED REMEDIATION ACTION:
 {state.remediation_action}
@@ -134,32 +123,10 @@ You are an AI Agent with access to various tools.
             Complete instructions for the agent
         """
         base = ResponseOrchestrator.generate_base_instructions(state)
-
-        # If a risky intent was detected, execution failed, and eradication has
-        # already been performed directly, we should stop further planning in
-        # this run and let the outer experiment harness perform a fresh rerun
-        # to validate the new learned rules.
-        if getattr(state, "stop_after_eradication", False):
-            return base + "\n" + """
-You have already attempted a risky operation and the safety system has
-generated a new learned rule to prevent similar behavior in the future.
-
-For this task run, DO NOT call any further tools or attempt new plans.
-Instead, provide a brief natural language explaination that  your actions 
-have been blocked out of risk considerations, and that the system has 
-learned a rule to block similar attempts. Then stop.
-"""
         
         # If incident detected and remediation not complete
         if state.incident_detected and not state.remediation_completed:
             return base + "\n" + ResponseOrchestrator.generate_remediation_prompt(state)
-        
-        # If rules were triggered this turn
-        if state.triggered_rules_current_turn:
-            return base + "\n" + ResponseOrchestrator.generate_detection_prompt(
-                state, 
-                state.triggered_rules_current_turn
-            )
         
         # Normal operation
         return base

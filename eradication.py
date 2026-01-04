@@ -44,45 +44,25 @@ def get_rule_generator_agent() -> Agent:
         _rule_generator_agent = Agent(
             name="Security Rule Generator",
             instructions="""
-You are a security expert specializing in learning from incidents to generate prevention rules.
+You generate prevention rules from incident reports.
 
-Your task:
-1. Analyze the incident details carefully
-2. Identify the SPECIFIC pattern that caused the incident
-3. Generate a rule that is:
-   - Specific enough to catch similar attacks
-   - General enough to not block legitimate operations
-   - Actionable (can be checked before execution)
+Goal:
+- Propose a NEW learned rule that would PREVENT the incident by matching a detectable pattern BEFORE execution.
 
-Focus on detectable patterns:
-- Function calls (e.g., "os.remove(", "shutil.rmtree(", "subprocess.run(")
-- Import statements (e.g., "import requests", "import socket")
-- Dangerous patterns (e.g., "eval(", "exec(", "__import__")
-- File paths (e.g., system directories like "/etc", "/sys")
-- Network endpoints (e.g., external URLs, IP addresses)
-- Code structure (e.g., loops with file operations)
-
-IMPORTANT:
-- The learned rule should be MORE SPECIFIC than the original rule
-- Focus on patterns that can be detected in tool arguments (especially code for python_repl)
-- Provide concrete examples of what should be blocked
-- Explain your reasoning clearly
-
-Example:
-Original rule: "executed Python code to delete files"
-Learned rule: "code contains 'os.remove(' or 'os.unlink(' or 'shutil.rmtree(' function calls"
-Reasoning: "These specific function calls are the direct cause of file deletion"
-Examples: ["os.remove('file.txt')", "shutil.rmtree('/tmp/data')"]
+Requirements:
+- Focus only on patterns detectable in tool arguments (especially python_repl code).
+- Prefer high precision (minimize false positives) while still catching similar attacks.
+- Provide clear reasoning and concrete examples that should be blocked.
 """,
             output_type=LearnedRuleOutput,
-            model="gpt-4o"
+            model="gpt-5-mini"
         )
     
     return _rule_generator_agent
 
 
 # ========================================
-# Eradication Function
+# Eradication Function (Generate Learned Rule)
 # ========================================
 
 async def eradicate_incident(
@@ -111,44 +91,29 @@ async def eradicate_incident(
     
     # Build detailed incident analysis prompt
     incident_prompt = f"""
-INCIDENT ANALYSIS REQUEST
+INCIDENT CONTEXT
+- Original rule id: {incident_details['rule_id']}
+- Original condition: {incident_details['original_condition']}
 
-ORIGINAL RULE THAT WAS TRIGGERED:
-- Rule ID: {incident_details['rule_id']}
-- Condition: {incident_details['original_condition']}
-- Note: This rule detected the incident AFTER execution
-
-INCIDENT DETAILS:
+Tool call that led to the incident:
 - Tool: {incident_details['tool_call']['tool']}
 - Arguments: {json.dumps(incident_details['tool_call']['arguments'], indent=2)}
 - Result: {incident_details['tool_call'].get('result', 'N/A')}
 - Description: {incident_details['description']}
 
-RECENT HISTORY (for context):
+Recent history (optional context):
 {json.dumps(incident_details.get('recent_history', [])[-5:], indent=2)}
 
-YOUR TASK:
-Generate a NEW learned rule that would PREVENT this incident by detecting it BEFORE execution.
+TASK
+Generate a NEW learned rule that would PREVENT this incident BEFORE execution.
 
-The learned rule should:
-1. Be MORE SPECIFIC than the original rule
-2. Focus on detectable patterns in the tool arguments
-3. Have HIGH PRECISION (minimize false positives)
-4. Be ACTIONABLE (can be checked before tool execution)
-
-EXAMPLE:
-If the incident involved:
-- Tool: python_repl
-- Code: "import os; os.remove('important_file.txt')"
-- Original rule: "executed Python code to delete files"
-
-Then generate:
-- Specific pattern: "code contains 'os.remove(' or 'os.unlink(' function calls"
-- Reasoning: "These function calls directly cause file deletion and can be detected via static analysis"
-- Examples: ["os.remove('file.txt')", "os.unlink('/path/to/file')"]
-
-Generate the learned rule now.
+REQUIREMENTS
+- Match a detectable pattern in tool arguments (especially python_repl code).
+- High precision (minimize false positives).
 """
+    print(f"\n{'='*80}")
+    print(f"[Eradication] \n{incident_prompt}")
+    print(f"{'='*80}")
     
     print(f"[Eradication] Calling Rule Generator Agent...")
     
