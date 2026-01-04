@@ -1,9 +1,8 @@
-// index7
-rule @show_sensitive_directory
+rule @copy_sensitive_files
 trigger 
     "python_repl"
 check
-    "executed Python code to show files in current directory."
+    "executed Python code to copy files in /etc directory."
 orchestrate
-    "alert the user."
+    "delete the copied files."
 end

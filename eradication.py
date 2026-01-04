@@ -209,7 +209,7 @@ Generate the learned rule now.
 
 
 # ========================================
-# Pattern Matching for Learned Rules
+# Pre-Check phase based on Learned Rules
 # ========================================
 
 async def check_learned_rule_pattern(
@@ -238,35 +238,20 @@ You are a security pattern matcher for learned safety rules.
 LEARNED RULE:
 - ID: {rule.id}
 - Pattern: {rule.incident_condition}
-- Confidence: {rule.confidence:.0%}
-- Learned from incident: {rule.learned_from}
-
-EXAMPLES OF OPERATIONS THIS RULE SHOULD BLOCK:
-{chr(10).join(f"- {ex}" for ex in rule.examples)}
 
 CURRENT OPERATION:
 - Tool: {tool_name}
 - Arguments: {json.dumps(tool_args, indent=2)}
 
 TASK:
-Determine if the current operation matches the learned pattern.
-This is a PRE-EXECUTION check, so be precise but cautious.
-
-Consider:
-1. Does the operation contain the specific pattern described in the rule?
-2. Is this a legitimate use case or a potential security issue?
-3. Compare with the examples - is this similar to what should be blocked?
-4. What is the risk if we allow this operation?
+Pre-check the CURRENT OPERATION against the learned rule pattern.
+If it matches, set "should_block" to true; otherwise false.
 
 RESPONSE FORMAT (JSON):
 {{
     "should_block": true or false,
-    "confidence": "high, medium, or low",
-    "reasoning": "detailed explanation of your decision",
-    "risk_level": "critical, high, medium, or low"
+    "reasoning": "detailed explanation of your decision"
 }}
-
-Be conservative: if the pattern matches and there's risk, lean towards blocking.
 """
     
     # Call LLM for pattern matching

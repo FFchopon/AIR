@@ -43,6 +43,16 @@ class IncidentDetectionHooks(AgentHooks[IncidentState]):
         """
         tool_name = tool.name
         state = context.context
+
+        # If the operation was blocked before execution by a learned safety
+        # rule (pre-check), do not enter detection mode for this turn.
+        banner = "OPERATION BLOCKED BY LEARNED SAFETY RULE"
+        if isinstance(result, str) and banner in result:
+            # Record the tool call in history (arguments may be extracted from
+            # session elsewhere). Clear turn-level state so it is not reused.
+            state.add_tool_call(tool_name, {}, result)
+            state.reset_turn_state()
+            return
         
         # Get rules triggered by this tool
         triggered_rules = state.get_triggered_rules_for_tool(tool_name)
