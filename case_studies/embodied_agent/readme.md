@@ -1,8 +1,10 @@
 This document provides a minimal quick start for embody agent.
 
+This case study provides a text-simulated sandbox environment for running experiments. For using the SafeAgentEnv environment, please refer to: https://github.com/shengyin1224/SafeAgentBench
+
 ## Embody Agent
 
-Embodied agent use 16 tools to do tasks in a simulated environment with rich scene objects and safety rules.
+Embodied agent use 17 tools to do tasks in a simulated environment with rich scene objects and safety rules.
 
 ### Configure a Sample Rule
 

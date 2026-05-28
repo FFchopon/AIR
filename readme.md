@@ -1,14 +1,43 @@
-## ResponseSpec Case Studies – Quick Start
+## AIR (Agent Incident Response)
+
+AIR provides a unified framework for autonomously managing the full incident response lifecycle in LLM agent
+systems, integrating a DSL that supports user-provided description of triggers, incident checks, and structured reme-
+diation actions.
 
 ![overview](./figure/overview.png)
 
-This repository contains example case studies built on top of the **ResponseSpec** framework. The two main case studies are:
+This repository contains example case studies built on top of the **AIR** framework. The three main case studies are:
 
 - **Code Agent** – executes Python code in a sandbox with safety rules, incident detection, and eradication (learned rules / pre-check).
 - **Embodied Agent** – controls an embodied agent in a simulated environment with rich scene objects and safety rules.
 - **Computer Use Agent** – controls a computer use agent in a simulated environment with rich scene objects and safety rules.
 
 This document provides a minimal quick start.
+
+---
+
+## Package Installation (Quick Start Prerequisites)
+
+This repository does not currently provide a unified `requirements.txt`, so install the minimal dependencies with the steps below:
+
+```bash
+# 1) Create and activate a conda environment
+conda create -n air python=3.11 -y
+conda activate air
+
+# 2) Install core dependencies
+python -m pip install --upgrade pip
+pip install openai openai-agents
+pip install antlr4-python3-runtime
+```
+
+Set your API key (required before running demos):
+
+```bash
+export OPENAI_API_KEY="your_api_key"
+```
+
+After this, continue with the Quick Start commands below to run the `Code Agent`.
 
 ---
 
@@ -53,3 +82,19 @@ Expected behavior:
 - On subsequent attempts with similar instructions, the **pre-check** phase consults `learned_rules.txt` and can **block** the operation before any code runs.
 
 **The documents providing a minimal quick start for Embody Agent and Computer Use Agent can be found in its respective directories.**
+
+---
+
+If you found AIR useful, please cite:
+
+```bibtex
+@misc{xiao2026airimprovingagentsafety,
+      title={AIR: Improving Agent Safety through Incident Response}, 
+      author={Zibo Xiao and Jun Sun and Junjie Chen},
+      year={2026},
+      eprint={2602.11749},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2602.11749}, 
+}
+```

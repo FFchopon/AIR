@@ -55,13 +55,14 @@ def create_safe_tool_with_eradication(
         Wrapped tool function
     """
     
-    # base_tool should be a raw function, not a Tool object
-    # The wrapper will convert it to a Tool at the end
-    if isinstance(base_tool, Tool):
+    # base_tool should be a raw function, not a Tool object.
+    # Avoid isinstance(..., Tool) because Tool may be a subscripted generic
+    # at runtime in some SDK versions, which raises TypeError.
+    if not callable(base_tool) or not hasattr(base_tool, "__name__"):
         raise ValueError(
             f"base_tool should be a raw function, not a Tool object. "
             f"Please pass the unwrapped function to create_safe_tool_with_eradication(). "
-            f"Tool name: {base_tool.name}"
+            f"Tool name: {getattr(base_tool, 'name', repr(base_tool))}"
         )
     
     tool_name = base_tool.__name__

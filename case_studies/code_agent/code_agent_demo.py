@@ -227,7 +227,7 @@ async def interactive_demo() -> None:
         rule_file=rule_file,
         base_tools=[python_repl_impl],  # Pass raw function, not decorated
         agent_name="Code Agent (Interactive)",
-        model="gpt-5-mini",
+        model="gpt-5",
         session=session,
         use_learned_rules=False,
     )

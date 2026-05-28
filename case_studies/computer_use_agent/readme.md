@@ -2,8 +2,6 @@ This document provides a minimal quick start for the Computer Use agent case stu
 
 ## Computer Use Agent
 
-This case study demonstrates ResponseSpec-style incident handling for an agent that operates a real browser using the OpenAI Agents SDK Computer Use tool.
-
 Prerequisites:
 
 - `OPENAI_API_KEY` set in your environment

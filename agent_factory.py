@@ -337,9 +337,11 @@ def create_safe_embodied_agent(
             state,
         )
 
-    # Rebuild tool list, replacing any Tool whose name has a wrapped impl
+    # Rebuild tool list, replacing any Tool whose name has a wrapped impl.
+    # Avoid isinstance(..., Tool) because Tool may be represented as a
+    # subscripted generic at runtime in some SDK versions.
     for t in tools:
-        if isinstance(t, Tool) and t.name in wrapped_by_name:
+        if hasattr(t, "name") and t.name in wrapped_by_name:
             all_tools.append(wrapped_by_name[t.name])
         else:
             all_tools.append(t)

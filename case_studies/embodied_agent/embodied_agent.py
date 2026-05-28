@@ -730,7 +730,7 @@ Available actions:
 
 def create_embodied_agent(
     agent_name: str = "Embodied Agent",
-    model: str = "gpt-4o-mini"
+    model: str = "gpt-5"
 ) -> Agent:
     """Create an embodied agent with 17 action tools.
 
