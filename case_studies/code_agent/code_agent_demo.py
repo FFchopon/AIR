@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from agents import Runner, function_tool, SQLiteSession
 from agent_factory import create_safe_agent
+from response import ResponseOrchestrator
 
 
 # ============================================================================
@@ -192,8 +193,10 @@ async def interactive_demo() -> None:
     """Run an interactive REPL-style demo for the ResponseSpec code agent.
 
     The demo runs entirely inside sandbox_root and uses ResponseSpec to
-    monitor python_repl_impl tool calls, detect incidents, and perform
-    eradication to learn pre-execution rules.
+    monitor python_repl_impl tool calls and detect incidents. If a run
+    ends with an unresolved incident, a dedicated remediation round is
+    forced; eradication (learning a pre-check rule) runs when the agent
+    calls mark_remediation_complete.
     """
 
     print("\n" + "=" * 80)
@@ -227,7 +230,7 @@ async def interactive_demo() -> None:
         rule_file=rule_file,
         base_tools=[python_repl_impl],  # Pass raw function, not decorated
         agent_name="Code Agent (Interactive)",
-        model="gpt-5",
+        model="gpt-5.6-luna",
         session=session,
         use_learned_rules=False,
     )
@@ -263,12 +266,56 @@ async def interactive_demo() -> None:
                 context=state,
                 session=session,
             )
-            
+
             print("\n" + "=" * 80)
             print("Agent Output")
             print("=" * 80)
             print(result.final_output)
             print("=" * 80)
+
+            # If post-check detected an incident but the agent ended without
+            # completing remediation, force a dedicated remediation round.
+            # Eradication (learned rule) runs inside mark_remediation_complete.
+            if state.incident_detected and not state.remediation_completed:
+                print("\n" + "=" * 80)
+                print("[Demo] Incident unresolved — forcing remediation round")
+                print(f"[Demo] Rule: {state.triggered_rule_id}")
+                print(f"[Demo] Required action: {state.remediation_action}")
+                print("=" * 80)
+
+                remediation_instruction = (
+                    ResponseOrchestrator.generate_remediation_prompt(state)
+                    + "\n\n"
+                    "Do NOT continue or summarize the previous user task.\n"
+                    "ONLY perform the required remediation using tools, then "
+                    "call mark_remediation_complete."
+                )
+
+                rem_result = await Runner.run(
+                    agent,
+                    remediation_instruction,
+                    context=state,
+                    session=session,
+                    max_turns=8,
+                )
+
+                print("\n" + "=" * 80)
+                print("Remediation Output")
+                print("=" * 80)
+                print(rem_result.final_output)
+                print("=" * 80)
+
+                if state.incident_detected and not state.remediation_completed:
+                    print(
+                        "\n[Demo] WARNING: Remediation round finished but "
+                        "incident is still unresolved "
+                        f"(rule={state.triggered_rule_id})."
+                    )
+                elif state.pending_eradication is None and not state.incident_detected:
+                    print(
+                        "\n[Demo] Remediation + eradication completed "
+                        f"(learned_rules={len(state.learned_rules)})."
+                    )
 
             if state.is_timing_enabled():
                 state.timing_task_end_ts = time.time()
@@ -297,12 +344,6 @@ async def interactive_demo() -> None:
                     print(f"[Timing] Response: {response_s:.3f} s")
                 if eradication_s is not None:
                     print(f"[Timing] Eradication: {eradication_s:.3f} s")
-
-            # print("\n[ResponseSpec] State Summary:")
-            # print("  incident_detected:", getattr(state, "incident_detected", False))
-            # print("  incident_occurred:", getattr(state, "incident_occurred", False))
-            # print("  triggered_rule_id:", getattr(state, "triggered_rule_id", ""))
-            # print("  learned_rules:", len(getattr(state, "learned_rules", [])))
 
         except Exception as exc:
             print(f"[Error] Agent run failed ({type(exc).__name__}): {exc}")
