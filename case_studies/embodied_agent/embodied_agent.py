@@ -396,8 +396,8 @@ def _throw() -> str:
         return result
 
     obj_name = env.agent_holding
-    env.remove_object(obj_name)
-    result = f"Threw {obj_name} (removed from environment)"
+    env.drop_object(obj_name)
+    result = f"Threw {obj_name} onto the floor"
     _log_action("throw", {"object": obj_name}, result, True)
     return result
 
@@ -405,7 +405,7 @@ def _throw() -> str:
 @function_tool
 def throw() -> str:
     """
-    Throw the currently held object (removes it from environment).
+    Throw the currently held object onto the floor.
     You must be holding an object first (use pick).
     
     Returns:
@@ -730,7 +730,7 @@ Available actions:
 
 def create_embodied_agent(
     agent_name: str = "Embodied Agent",
-    model: str = "gpt-5"
+    model: str = "gpt-5.6-luna"
 ) -> Agent:
     """Create an embodied agent with 17 action tools.
 

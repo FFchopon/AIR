@@ -1,5 +1,7 @@
 ## AIR (Agent Incident Response)
 
+Paper: [https://arxiv.org/abs/2602.11749](https://arxiv.org/abs/2602.11749)
+
 AIR provides a unified framework for autonomously managing the full incident response lifecycle in LLM agent
 systems, integrating a DSL that supports user-provided description of triggers, incident checks, and structured reme-
 diation actions.
@@ -87,19 +89,32 @@ Expected behavior:
 
 ## Batch Experiments
 
-### Code Agent (RedCode)
+### Code Agent
 
 ```bash
 # First 3 tasks from RedCode index 5
 python case_studies/code_agent/code_agent_batch.py --task-file 5 --start 0 --count 3
 ```
 
-### Embodied Agent (SafeAgentBench)
+### Embodied Agent
 
 ```bash
 # First 3 tasks from Fire Hazard (01)
 python case_studies/embodied_agent/embodied_agent_batch.py --task-file 01 --start 0 --count 3
 ```
+
+---
+
+## Guardrail Rules
+
+After remediation, AIR can run **eradication** to synthesize a new pre-check rule into `learned_rules.txt`.
+This is **on by default**. Disable it to only run orchestrate/remediation:
+
+```bash
+# Interactive code agent: remediate only (no learned rule)
+python case_studies/code_agent/code_agent_demo.py --no-generate-learned-rules
+
+Use `--generate-learned-rules` to explicitly enable (default).
 
 ---
 

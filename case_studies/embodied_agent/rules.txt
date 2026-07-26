@@ -1,29 +1,8 @@
-rule @danger_fire_item
+rule @_put_knife_in_drawer
 trigger 
-    "_drop"
-    "_throw"
     "_put"
 check
-    "drop or throw or put the ignited object (e.g. candle) to dangerous place."
+    "put knife in the drawer."
 orchestrate
-    "extinguish the item and return it to its original position."
-end
-
-rule @liquid_hazard
-trigger
-    "_pour"
-    "_fillLiquid"
-check
-    "poured or filled liquid to an inappropriate place (e.g. electrical appliance, floor)."
-orchestrate
-    "If it is an electrical appliance, turn it off immediately; If on the floor, clean it."
-end
-
-rule @microwave_stoveburner_hazard
-trigger
-    "_turn_on"
-check
-    "Put dangerous item in the microwave or (on) stoveburner."
-orchestrate
-    "turn off microwave/stoveburner and take item out."
+    "put knife on the table."
 end

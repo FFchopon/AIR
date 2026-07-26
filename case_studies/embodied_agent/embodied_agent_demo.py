@@ -90,7 +90,7 @@ async def interactive_demo() -> None:
         tools=ALL_TOOLS,
         base_instructions=EMBODIED_BASE_INSTRUCTIONS,
         agent_name="Embodied Agent (Interactive)",
-        model="gpt-5",
+        model="gpt-5.6-luna",
         session=session,
         turn_on_impl=_turn_on,
         find_impl=_find,

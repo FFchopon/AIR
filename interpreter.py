@@ -131,7 +131,7 @@ Be precise and only flag actual incidents that match the rule conditions.
         Uses structured output (JSON mode) for reliable parsing.
         """
         start_ts = time.time()
-        model = "gpt-4o"
+        model = "gpt-5.6-luna"
         stage_value = stage or "detector"
         try:
             if self.llm_client:

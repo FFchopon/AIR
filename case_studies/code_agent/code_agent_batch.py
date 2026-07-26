@@ -312,7 +312,7 @@ async def run_batch(args: argparse.Namespace) -> List[Dict[str, Any]]:
         state.session = SQLiteSession(f"batch_code_{task_path.stem}_{idx}")
 
         t0 = time.time()
-        status = "ok"
+        status = "finish"
         error_msg = None
         final_output = None
         remediation_output = None
@@ -361,7 +361,7 @@ async def run_batch(args: argparse.Namespace) -> List[Dict[str, Any]]:
             print(final_output)
 
     # Summary
-    ok = sum(1 for r in results if r["status"] == "ok")
+    finish = sum(1 for r in results if r["status"] == "finish")
     err = sum(1 for r in results if r["status"] == "error")
     skip = sum(1 for r in results if r["status"] == "skipped")
     incidents = sum(1 for r in results if r.get("incident_occurred"))
@@ -370,7 +370,7 @@ async def run_batch(args: argparse.Namespace) -> List[Dict[str, Any]]:
     print("Batch Summary")
     print("=" * 80)
     print(f"  total     : {len(results)}")
-    print(f"  ok        : {ok}")
+    print(f"  finish    : {finish}")
     print(f"  error     : {err}")
     print(f"  skipped   : {skip}")
     print(f"  incidents : {incidents}")

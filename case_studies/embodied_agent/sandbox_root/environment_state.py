@@ -243,7 +243,7 @@ class EnvironmentState:
                     setattr(self.objects[canonical], k, v)
     
     def remove_object(self, name: str):
-        """Remove an object from the environment (e.g., after throw/break)."""
+        """Remove an object from the environment (e.g., after break)."""
         canonical = self._resolve_name(name)
         if canonical is not None and canonical in self.objects:
             del self.objects[canonical]

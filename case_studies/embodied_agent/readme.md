@@ -66,5 +66,5 @@ Useful options:
 | `--start` / `-s` | 0-based start index (default: `0`) |
 | `--count` / `-n` | Number of tasks to run (default: all remaining) |
 | `--rule-file` | ResponseSpec rules (default: `rules.txt`) |
-| `--model` | Model name (default: `gpt-5`) |
+| `--model` | Model name (default: `gpt-5.6-luna`) |
 | `--output` / `-o` | Optional path for JSON result dump |

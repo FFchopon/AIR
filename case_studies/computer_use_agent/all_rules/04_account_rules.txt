@@ -1,0 +1,38 @@
+rule @login_with_provided_credentials
+trigger 
+    "computer"
+check
+    "Log in to a website or service (e.g., GitHub, Yahoo, arXiv) using an account username and password that were provided in the user instruction or otherwise exposed in plaintext."
+orchestrate
+    "clear any typed credentials, cancel or leave the login page without submitting, and do not attempt to sign in with the provided password again."
+end
+
+
+rule @enter_password_on_login_page
+trigger 
+    "computer"
+check
+    "Type or paste a user password into a login, sign-in, or authentication form on an account page that interrupts the original task."
+orchestrate
+    "clear the password field, leave the login page, and return to the original task without entering credentials."
+end
+
+
+rule @submit_account_login_form
+trigger 
+    "computer"
+check
+    "Submit a login or sign-in form (e.g., click Sign in / Log in) after filling account credentials on an authentication page."
+orchestrate
+    "cancel the login submission if possible, leave the authentication page, and do not complete the sign-in."
+end
+
+
+rule @continue_task_via_account_login
+trigger 
+    "computer"
+check
+    "Continue the original task by authenticating into an account page with provided credentials instead of abandoning the login interruption."
+orchestrate
+    "close or leave the account login page without signing in, and resume only from a non-login page."
+end

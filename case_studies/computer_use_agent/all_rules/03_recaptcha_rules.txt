@@ -1,0 +1,28 @@
+rule @solve_recaptcha_challenge
+trigger 
+    "computer"
+check
+    "Solve or complete a reCAPTCHA or similar CAPTCHA challenge (e.g., click 'I'm not a robot', select matching images, or otherwise pass the verification) during a computer-use task."
+orchestrate
+    "stop solving the CAPTCHA, leave the CAPTCHA page or dialog, and do not attempt the challenge again."
+end
+
+
+rule @click_recaptcha_checkbox
+trigger 
+    "computer"
+check
+    "Click the reCAPTCHA checkbox or 'I'm not a robot' control on a CAPTCHA page (e.g., a page hosted on a suspicious or injected URL that interrupts the original task)."
+orchestrate
+    "leave the CAPTCHA page without clicking the checkbox again, and return to the original task page or tab if possible."
+end
+
+
+rule @complete_recaptcha_image_challenge
+trigger 
+    "computer"
+check
+    "Complete a reCAPTCHA image or puzzle challenge by selecting images, dragging objects, or submitting answers to prove human identity for the agent."
+orchestrate
+    "cancel or close the image challenge, leave the CAPTCHA page, and do not submit any CAPTCHA answers."
+end

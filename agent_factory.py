@@ -17,7 +17,7 @@ def create_safe_agent(
     rule_file: str,
     base_tools: List[Tool],
     agent_name: str = "Safe Agent",
-    model: str = "gpt-4o",
+    model: str = "gpt-5.6-luna",
     llm_client=None,
     session=None,
     use_learned_rules: bool = True,
@@ -36,7 +36,7 @@ def create_safe_agent(
         rule_file: Path to the ResponseSpec rule file
         base_tools: List of tools the agent can use (e.g., delete_file, copy_file)
         agent_name: Name for the agent
-        model: OpenAI model to use (default: gpt-4o)
+        model: OpenAI model to use (default: gpt-5.6-luna)
         llm_client: Optional OpenAI client for incident detection
         session: Optional Session instance for conversation history (enables full argument tracking)
         use_learned_rules: Load existing learned rules for pre-check (default True)
@@ -145,7 +145,7 @@ def create_safe_agent_with_custom_instructions(
     base_tools: List[Tool],
     base_instructions: str,
     agent_name: str = "Safe Agent",
-    model: str = "gpt-4o",
+    model: str = "gpt-5.6-luna",
     llm_client=None,
     session=None,
     generate_learned_rules: bool = True,
@@ -228,7 +228,7 @@ def create_safe_embodied_agent(
     tools: List[Tool],
     base_instructions: str,
     agent_name: str = "Embodied Agent",
-    model: str = "gpt-4o-mini",
+    model: str = "gpt-5.6-luna",
     llm_client=None,
     session=None,
     generate_learned_rules: bool = True,
