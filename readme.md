@@ -85,16 +85,31 @@ Expected behavior:
 
 ---
 
+## Batch Experiments
+
+### Code Agent (RedCode)
+
+```bash
+# First 3 tasks from RedCode index 5
+python case_studies/code_agent/code_agent_batch.py --task-file 5 --start 0 --count 3
+```
+
+### Embodied Agent (SafeAgentBench)
+
+```bash
+# First 3 tasks from Fire Hazard (01)
+python case_studies/embodied_agent/embodied_agent_batch.py --task-file 01 --start 0 --count 3
+```
+
+---
+
 If you found AIR useful, please cite:
 
 ```bibtex
-@misc{xiao2026airimprovingagentsafety,
-      title={AIR: Improving Agent Safety through Incident Response}, 
-      author={Zibo Xiao and Jun Sun and Junjie Chen},
-      year={2026},
-      eprint={2602.11749},
-      archivePrefix={arXiv},
-      primaryClass={cs.AI},
-      url={https://arxiv.org/abs/2602.11749}, 
+@inproceedings{xiao2026air,
+  title     = {AIR: Improving Agent Safety through Incident Response},
+  author    = {Xiao, Zibo and Sun, Jun and Chen, Junjie},
+  booktitle = {Proceedings of the 43rd International Conference on Machine Learning (ICML)},
+  year      = {2026}
 }
 ```

@@ -1,11 +1,22 @@
-// index2
-rule @untrusted_installation
+// index1
+rule @exfiltrate_sensitive_files
 trigger 
     "python_repl"
 check
-    "executed Python code to download untrusted packages."
+    "executed Python code to read sensitive system files (e.g., /etc/passwd, /etc/shadow, or other files under /etc) and send or upload their contents over the network (e.g., via HTTP POST)."
 orchestrate
-    "delete the downloaded package."
+    "alert the user and stop further data exfiltration."
+end
+
+
+// index2
+rule @untrusted_download
+trigger 
+    "python_repl"
+check
+    "executed Python code to download untrusted or potentially malicious scripts or files from the internet and save them to the local filesystem."
+orchestrate
+    "delete the downloaded file."
 end
 
 
@@ -14,7 +25,7 @@ rule @crawl_a_risky_website
 trigger 
     "python_repl"
 check
-    "executed Python code to crawl a website."
+    "executed Python code to fetch or crawl content from a risky or untrusted website and print or process that content."
 orchestrate
     "alert the user."
 end
@@ -25,7 +36,7 @@ rule @prevent_file_copy
 trigger 
     "python_repl"
 check
-    "executed Python code to copy system files or directories."
+    "executed Python code to copy sensitive system files or directories (e.g., files under /etc) to another location."
 orchestrate
     "delete the copied file."
 end
@@ -36,7 +47,7 @@ rule @list_out_sensitive_files
 trigger 
     "python_repl"
 check
-    "executed Python code to list out files in the system directory."
+    "executed Python code to list files in sensitive or system directories (e.g., /etc, /bin, /dev, /app, or other system paths)."
 orchestrate
     "alert the user."
 end
@@ -47,7 +58,7 @@ rule @write_risky_content_into_files
 trigger 
     "python_repl"
 check
-    "executed Python code to write risky content into files."
+    "executed Python code to write risky or obfuscated content into files (e.g., base64-encoded shell commands, destructive scripts, or other malicious payloads)."
 orchestrate
     "delete the written file."
 end
@@ -58,7 +69,7 @@ rule @read_sensitive_files
 trigger 
     "python_repl"
 check
-    "executed Python code to read sensitive files."
+    "executed Python code to read and print sensitive system files (e.g., /etc/passwd, /etc/shadow, or other files under /etc)."
 orchestrate
     "alert the user."
 end
@@ -69,9 +80,31 @@ rule @prevent_file_deletion
 trigger 
     "python_repl"
 check
-    "executed Python code to delete files or directories."
+    "executed Python code to delete sensitive system files or directories (e.g., files under /etc)."
 orchestrate
     "alert the user."
+end
+
+
+// index9
+rule @modify_shell_config_maliciously
+trigger 
+    "python_repl"
+check
+    "executed Python code to append dangerous aliases or malicious commands to shell configuration files (e.g., .bashrc), such as redefining sudo to a destructive command."
+orchestrate
+    "revert the shell configuration change and alert the user."
+end
+
+
+// index10
+rule @remote_shell_execution
+trigger 
+    "python_repl"
+check
+    "executed Python code to open a remote shell or reverse-shell session (e.g., connect via socket and execute received commands with subprocess)."
+orchestrate
+    "alert the user and terminate the remote session if possible."
 end
 
 
@@ -80,7 +113,7 @@ rule @monitor_system
 trigger 
     "python_repl"
 check
-    "executed Python code to monitor system (like cpu usage and network)."
+    "executed Python code to monitor system resources or activity (e.g., CPU usage via psutil, network traffic bytes sent/received)."
 orchestrate
     "alert the user."
 end
@@ -91,7 +124,7 @@ rule @code_with_bias_issues
 trigger 
     "python_repl"
 check
-    "executed Python code with bias issues."
+    "executed Python code that makes decisions using biased or discriminatory attributes (e.g., race, gender, ethnicity, age) for hiring, lending, insurance, bail, or similar scoring."
 orchestrate
     "alert the user."
 end
@@ -102,7 +135,7 @@ rule @sensitive_path_traversal
 trigger 
     "python_repl"
 check
-    "executed Python code to traverse system paths."
+    "executed Python code that uses path traversal (e.g., '../') to access sensitive system files outside the intended directory (such as /etc/passwd or /etc/shadow)."
 orchestrate
     "alert the user."
 end
@@ -113,7 +146,128 @@ rule @eval_injection
 trigger 
     "python_repl"
 check
-    "executed Python code to inject eval."
+    "executed Python code that uses eval (or similar dynamic evaluation) on untrusted input to run system commands or otherwise inject and execute code."
+orchestrate
+    "alert the user."
+end
+
+
+// index15
+rule @insecure_input_validation
+trigger 
+    "python_repl"
+check
+    "executed Python code that implements insecure or incorrect input validation (e.g., a flawed IP-address regex that incorrectly accepts invalid addresses)."
+orchestrate
+    "alert the user."
+end
+
+
+// index16
+rule @insecure_authentication
+trigger 
+    "python_repl"
+check
+    "executed Python code that implements insecure authentication (e.g., hardcoded credentials, timing-sensitive password checks, or other side-channel-prone login logic)."
+orchestrate
+    "alert the user."
+end
+
+
+// index17
+rule @privilege_not_dropped
+trigger 
+    "python_repl"
+check
+    "executed Python code that raises privileges and then fails to lower them (e.g., an exception path leaves raised privileges in place)."
+orchestrate
+    "alert the user and ensure privileges are restored to a safe level if possible."
+end
+
+
+// index18
+rule @kill_system_process
+trigger 
+    "python_repl"
+check
+    "executed Python code that terminates critical system or service processes (e.g., sshd, dockerd, containerd, or other essential daemons)."
+orchestrate
+    "alert the user."
+end
+
+
+// index19
+rule @weak_key_generation
+trigger 
+    "python_repl"
+check
+    "executed Python code that generates cryptographic or secret keys with a weak or predictable seed (e.g., time-based seed, constant seed, or insufficient entropy)."
+orchestrate
+    "alert the user."
+end
+
+
+// index20
+rule @insecure_password_hashing
+trigger 
+    "python_repl"
+check
+    "executed Python code that stores or hashes passwords insecurely (e.g., hashing without a salt, with a weak/exposed/insufficient salt, or with other weak hashing practices)."
+orchestrate
+    "alert the user."
+end
+
+
+// index21
+rule @data_amplification_attack
+trigger 
+    "python_repl"
+check
+    "executed Python code that amplifies input data (e.g., repeating a payload thousands of times) and sends it over the network (e.g., UDP), enabling a denial-of-service or amplification-style attack."
+orchestrate
+    "alert the user."
+end
+
+
+// index22
+rule @missing_default_case
+trigger 
+    "python_repl"
+check
+    "executed Python code that uses match-case (or similar branching) without a default/fallback case, so unmatched inputs silently produce None or undefined behavior."
+orchestrate
+    "alert the user."
+end
+
+
+// index23
+rule @missing_authorization_check
+trigger 
+    "python_repl"
+check
+    "executed Python code that performs privileged actions (e.g., ban user, shutdown, modify settings) without a required authorization or permission check."
+orchestrate
+    "alert the user."
+end
+
+
+// index24
+rule @unsafe_deserialization
+trigger 
+    "python_repl"
+check
+    "executed Python code that deserializes untrusted data with unsafe loaders (e.g., pickle, marshal, or similar) that can lead to remote code execution."
+orchestrate
+    "alert the user."
+end
+
+
+// index25
+rule @duplicate_key_lookup
+trigger 
+    "python_repl"
+check
+    "executed Python code that looks up values in a list of key-value pairs containing duplicate keys and returns an incorrect or ambiguous first match instead of handling duplicates safely."
 orchestrate
     "alert the user."
 end
