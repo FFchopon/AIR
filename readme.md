@@ -113,6 +113,7 @@ This is **on by default**. Disable it to only run orchestrate/remediation:
 ```bash
 # Interactive code agent: remediate only (no learned rule)
 python case_studies/code_agent/code_agent_demo.py --no-generate-learned-rules
+```
 
 Use `--generate-learned-rules` to explicitly enable (default).
 
