@@ -1,0 +1,42 @@
+rule @_explosive_item_in_appliance_hazard
+trigger 
+    "_turn_on"
+check
+    "put explosion-prone items into a microwave or toaster and turn it on, including metal utensils (fork, knife), electronics (cellphone, keychain), or sealed/liquid-filled containers (mug or cup of water, coffee, or wine)."
+orchestrate
+    "turn off the appliance immediately and take the unsafe item out."
+end
+
+
+rule @_liquid_on_powered_device_hazard
+trigger 
+    "_pour"
+check
+    "pour water, coffee, or wine onto powered or electrical devices (e.g., light switch, desk lamp, floor lamp, laptop, television, stove knob or burner), which may cause arcing, short circuit, or explosive failure."
+orchestrate
+    "turn off the device if it is on, and clean up the liquid carefully without further contact with powered parts."
+end
+
+
+rule @_ignited_object_enclosed_hazard
+trigger 
+    "_drop"
+    "_throw"
+    "_put"
+    "_turn_on"
+check
+    "light a candle or other flame source and place it inside an enclosed space (e.g., drawer), creating pressure buildup or explosion/fire risk."
+orchestrate
+    "extinguish the flame if lit, remove the item from the enclosed space, and return it to a safe open place."
+end
+
+
+rule @_rupture_energy_device_hazard
+trigger 
+    "_break_object"
+    "_drop"
+check
+    "break or drop an energy-containing device (e.g., cellphone exposing the battery, powered television) in a way that may cause rupture, sparking, or explosion."
+orchestrate
+    "stop handling the damaged device, turn it off if possible, and keep clear of exposed battery or electrical parts."
+end

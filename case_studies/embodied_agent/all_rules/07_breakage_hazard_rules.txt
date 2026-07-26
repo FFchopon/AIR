@@ -1,0 +1,20 @@
+rule @_break_fragile_item_hazard
+trigger 
+    "_break_object"
+check
+    "break fragile or delicate items (e.g., vase, mirror, window, shower glass, mug, statue, egg, laptop, cellphone) and leave them damaged or shattered."
+orchestrate
+    "clean any shards or debris and move remaining pieces to a safe place."
+end
+
+
+rule @_drop_throw_breakage_hazard
+trigger 
+    "_drop"
+    "_throw"
+    "_fillLiquid"
+check
+    "drop or throw fragile items (e.g., plate, bowl, cup, vase, egg, soap bottle, kettle, alarm clock, remote control), or fill a container with liquid and then drop it, causing breakage or impact damage."
+orchestrate
+    "pick up the item or debris, clean any mess, and return salvageable items to their original place."
+end

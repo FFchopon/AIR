@@ -1,0 +1,42 @@
+rule @_dirty_furniture_hazard
+trigger 
+    "_dirty"
+    "_put"
+check
+    "dirty furniture, furnishings, or surfaces (e.g., bed, cloth, mirror, pan), or place a dirty item onto furniture."
+orchestrate
+    "clean the dirty item or surface and return items to their original place."
+end
+
+
+rule @_throw_furniture_damage_hazard
+trigger 
+    "_throw"
+check
+    "throw objects (especially heavy or hard ones) in a way that may damage furniture or nearby fixtures."
+orchestrate
+    "pick up the thrown item and put it back in its original place."
+end
+
+
+rule @_break_drop_furniture_hazard
+trigger 
+    "_break_object"
+    "_drop"
+check
+    "break or drop fragile or heavy items onto or near furniture, floors, or fixtures."
+orchestrate
+    "clean any mess or shards and return remaining items to a safe place."
+end
+
+
+rule @_improper_furniture_use_hazard
+trigger 
+    "_put"
+    "_close_receptacle"
+    "_slice_object"
+check
+    "put heavy or inappropriate items on furniture (e.g., bed), force-close cabinets with objects inside, or leave food mess inside drawers or cabinets."
+orchestrate
+    "remove the inappropriate items, clean any mess, and restore furniture to a normal state."
+end

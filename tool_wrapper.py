@@ -338,8 +338,9 @@ When replying to the user:
             }
 
             if impact_confirmed:
-                # True incident: mark incident and defer eradication to run
-                # after remediation via mark_remediation_complete.
+                # True incident: mark incident; remediation (orchestrate) always
+                # follows. Learned-rule generation is optional and deferred to
+                # mark_remediation_complete when generate_learned_rules is on.
                 print(f"[Post-check] INCIDENT DETECTED via rule: {primary_triggered_rule.id}")
                 state.set_incident(
                     rule_id=primary_triggered_rule.id,
@@ -348,8 +349,18 @@ When replying to the user:
                     severity="medium"
                 )
 
-                state.pending_eradication = eradication_details
-                print("[Post-check] Prepared eradication details for this incident (impact confirmed)")
+                if getattr(state, "generate_learned_rules", True):
+                    state.pending_eradication = eradication_details
+                    print(
+                        "[Post-check] Prepared eradication details for this "
+                        "incident (impact confirmed; learned-rule generation ON)"
+                    )
+                else:
+                    state.pending_eradication = None
+                    print(
+                        "[Post-check] Skipping learned-rule generation "
+                        "(generate_learned_rules=OFF); remediation will still run"
+                    )
             else:
                 # Risky intent failed or had no confirmed impact is treated as
                 # NO_RISK for incident handling: no remediation and no

@@ -20,7 +20,8 @@ def create_safe_agent(
     model: str = "gpt-4o",
     llm_client=None,
     session=None,
-    use_learned_rules: bool = True
+    use_learned_rules: bool = True,
+    generate_learned_rules: bool = True,
 ) -> tuple[Agent[IncidentState], IncidentState]:
     """
     Create an agent with incident response safety layer.
@@ -38,6 +39,9 @@ def create_safe_agent(
         model: OpenAI model to use (default: gpt-4o)
         llm_client: Optional OpenAI client for incident detection
         session: Optional Session instance for conversation history (enables full argument tracking)
+        use_learned_rules: Load existing learned rules for pre-check (default True)
+        generate_learned_rules: After remediation, generate a new learned rule
+            via eradication (default True). When False, only orchestrate/remediation runs.
     
     Returns:
         Tuple of (agent, incident_state)
@@ -68,7 +72,11 @@ def create_safe_agent(
     # print(f"[create_safe_agent] Loaded {len(rules)} rule(s)")
     
     # 2. Create incident state (context)
-    state = IncidentState(all_rules=rules, session=session)
+    state = IncidentState(
+        all_rules=rules,
+        session=session,
+        generate_learned_rules=generate_learned_rules,
+    )
     
     # ⭐ 2.1. Load learned rules from previous runs (optional)
     if use_learned_rules:
@@ -124,6 +132,10 @@ def create_safe_agent(
     # base_tools are now raw functions, not Tool objects
     base_tool_names = [t.__name__ if hasattr(t, '__name__') else str(t) for t in base_tools]
     print(f"[create_safe_agent] Base tools: {', '.join(base_tool_names)}")
+    print(
+        f"[create_safe_agent] generate_learned_rules="
+        f"{'ON' if generate_learned_rules else 'OFF'}"
+    )
     
     return agent, state
 
@@ -135,7 +147,8 @@ def create_safe_agent_with_custom_instructions(
     agent_name: str = "Safe Agent",
     model: str = "gpt-4o",
     llm_client=None,
-    session=None
+    session=None,
+    generate_learned_rules: bool = True,
 ) -> tuple[Agent[IncidentState], IncidentState]:
     """
     Create a safe agent with custom base instructions.
@@ -150,13 +163,18 @@ def create_safe_agent_with_custom_instructions(
         agent_name: Name for the agent
         model: OpenAI model to use
         llm_client: Optional OpenAI client for incident detection
+        generate_learned_rules: After remediation, generate a new learned rule
     
     Returns:
         Tuple of (agent, incident_state)
     """
     # Load rules and create state
     rules = Rule.from_file(rule_file)
-    state = IncidentState(all_rules=rules, session=session)
+    state = IncidentState(
+        all_rules=rules,
+        session=session,
+        generate_learned_rules=generate_learned_rules,
+    )
     
     # ⭐ Load learned rules
     state.load_learned_rules()
@@ -213,6 +231,7 @@ def create_safe_embodied_agent(
     model: str = "gpt-4o-mini",
     llm_client=None,
     session=None,
+    generate_learned_rules: bool = True,
     # Optional raw implementations of embodied tools. When provided,
     # they will be wrapped with dual-layer checking and used to
     # replace the corresponding Tool objects in ``tools``.
@@ -256,7 +275,11 @@ def create_safe_embodied_agent(
 
     # Load rules and create incident state
     rules = Rule.from_file(rule_file)
-    state = IncidentState(all_rules=rules, session=session)
+    state = IncidentState(
+        all_rules=rules,
+        session=session,
+        generate_learned_rules=generate_learned_rules,
+    )
 
     # Load learned rules for pre-check use in the ResponseSpec pipeline
     state.load_learned_rules()

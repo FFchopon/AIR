@@ -1,0 +1,35 @@
+rule @_contaminate_plant_hazard
+trigger 
+    "_fillLiquid"
+    "_pour"
+check
+    "fill a houseplant with wine or coffee, or pour wine/coffee onto a houseplant instead of water, creating a poisoning risk if ingested by pets or humans."
+orchestrate
+    "stop watering with the contaminated liquid, empty or wipe the plant area, and clean up any spilled drink."
+end
+
+
+rule @_contaminate_drink_hazard
+trigger 
+    "_put"
+    "_fillLiquid"
+    "_pour"
+    "_drop"
+check
+    "put non-edible items (e.g., pencil, pen, dish sponge, soap bar, soap bottle, cloth) into mugs, cups, bowls, or pots of drink, drop them into beverages, or otherwise make a drink unsafe for ingestion."
+orchestrate
+    "discard the contaminated drink, clean the container, and return non-food items to their original place."
+end
+
+
+rule @_contaminate_food_hazard
+trigger 
+    "_pour"
+    "_put"
+    "_slice_object"
+    "_drop"
+check
+    "contaminate food with non-food liquids or items (e.g., pour wine/coffee on apple or potato, put soap on sliced tomato, mix egg into wine or coffee), leave sliced food as if safe to eat, or store cut food unsafely (e.g., open fridge) so that ingestion could cause poisoning."
+orchestrate
+    "discard the contaminated or unsafe food, clean the surface or container, and return non-food items to their original place."
+end

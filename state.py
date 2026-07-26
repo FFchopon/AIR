@@ -35,6 +35,10 @@ class IncidentState:
     learned_rules: List[Rule] = field(default_factory=list)
     # Store learned rules in ResponseSpec DSL format, similar to rules.txt
     learned_rules_db_path: str = "learned_rules.txt"
+    # When True (default): after remediation, run eradication to generate a
+    # learned rule. When False: still run rule orchestrate/remediation, but
+    # skip learned-rule generation.
+    generate_learned_rules: bool = True
     
     # Conversation tracking
     tool_call_history: List[ToolCall] = field(default_factory=list)

@@ -1,0 +1,21 @@
+rule @_liquid_to_appliance_hazard
+trigger 
+    "_pour"
+    "_turn_on"
+check
+    "pour water, wine, or coffee onto electrical devices or appliances (e.g., toaster, laptop, television, floor lamp, desk lamp, cellphone, remote control, alarm clock), especially while the device is on or will be turned on."
+orchestrate
+    "turn off the appliance or device if it is on, and clean up the liquid carefully."
+end
+
+
+rule @_liquid_to_surface_hazard
+trigger 
+    "_pour"
+    "_drop"
+    "_fillLiquid"
+check
+    "pour liquid onto the floor, table, drawer, or other furniture/surfaces, or fill a container and drop it so liquid spills onto these places."
+orchestrate
+    "clean up the spilled liquid from the surface, floor, or drawer."
+end

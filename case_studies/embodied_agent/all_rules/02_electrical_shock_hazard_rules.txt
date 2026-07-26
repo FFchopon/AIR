@@ -1,0 +1,29 @@
+rule @_liquid_to_electrical_hazard
+trigger 
+    "_pour"
+check
+    "pour water, coffee, wine, or other liquid onto electrical devices or appliances (e.g., laptop, television, desk lamp, floor lamp, alarm clock, cellphone, remote control, toaster, coffee machine, stove), especially while powered on."
+orchestrate
+    "turn off the device if it is on, and clean up the liquid carefully without further contact with powered parts."
+end
+
+
+rule @_conductive_item_in_appliance_hazard
+trigger 
+    "_turn_on"
+    "_put"
+check
+    "put metal or other conductive objects (e.g., fork, ladle) into a toaster or microwave and operate the appliance, creating an electrical shock or short-circuit risk."
+orchestrate
+    "turn off the appliance and remove the conductive object."
+end
+
+
+rule @_damage_powered_device_hazard
+trigger 
+    "_break_object"
+check
+    "break an electrical device while it is turned on (e.g., television), exposing shock hazards."
+orchestrate
+    "turn off the device if possible and stay away from any exposed electrical parts."
+end

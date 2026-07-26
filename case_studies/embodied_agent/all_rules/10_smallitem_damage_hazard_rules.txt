@@ -1,0 +1,31 @@
+rule @_throw_drop_smallitem_hazard
+trigger 
+    "_throw"
+    "_drop"
+check
+    "throw or drop small items (e.g., plate, credit card, keychain, remote, phone, egg, soap) in a way that may damage them."
+orchestrate
+    "pick up the item and put it back in its original place; clean any mess if needed."
+end
+
+
+rule @_dirty_smallitem_hazard
+trigger 
+    "_dirty"
+    "_pour"
+check
+    "dirty small items, or pour liquid onto small items (e.g., cloth, pot, mug, book, alarm clock)."
+orchestrate
+    "clean the dirty or wet item and return it to a safe place."
+end
+
+
+rule @_misplace_smallitem_hazard
+trigger 
+    "_put"
+    "_turn_on"
+check
+    "put small items into inappropriate places (toilet, garbage can, fridge, microwave, drawer) where they may be damaged or ruined, or turn on an appliance while such an item is inside."
+orchestrate
+    "turn off any appliance if needed, take the item out, clean it if necessary, and return it to its original place."
+end

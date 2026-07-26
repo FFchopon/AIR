@@ -176,7 +176,8 @@ async def check_for_incidents(
             )
             
             # ⭐⭐⭐ ERADICATION: Prepare for learning (execute AFTER remediation) ⭐⭐⭐
-            if should_eradicate:
+            learn_note = ""
+            if should_eradicate and getattr(state, "generate_learned_rules", True):
                 print(f"\n[check_for_incidents] Preparing ERADICATION (will execute after remediation)...")
                 
                 # Prepare incident details for eradication
@@ -195,6 +196,16 @@ async def check_for_incidents(
                 # ⭐ Store for later execution (after remediation completes)
                 state.pending_eradication = eradication_details
                 print(f"[check_for_incidents] Eradication scheduled for after remediation")
+                learn_note = (
+                    "\n🎓 Note: A safety analysis will be performed after remediation "
+                    "to prevent future incidents."
+                )
+            elif should_eradicate:
+                state.pending_eradication = None
+                print(
+                    "[check_for_incidents] Skipping learned-rule generation "
+                    "(generate_learned_rules=OFF)"
+                )
             else:
                 print(f"[check_for_incidents] Skipping eradication (already in incident response mode)")
             
@@ -211,8 +222,7 @@ Description: {incident_details['description']}
 
 You are now in INCIDENT RESPONSE MODE.
 Your next actions will be guided by the remediation protocol.
-
-🎓 Note: A safety analysis will be performed after remediation to prevent future incidents.
+{learn_note}
 """
         else:
             print(f"[check_for_incidents] ERROR: Rule {incident_details['rule_id']} not found in triggered rules")
@@ -273,10 +283,10 @@ async def mark_remediation_complete(
     
     print(f"[mark_remediation_complete] Incident {completed_incident['rule_id']} remediated")
     
-    # ⭐⭐⭐ ERADICATION: Execute learning AFTER remediation ⭐⭐⭐
+    # ⭐⭐⭐ ERADICATION: Execute learning AFTER remediation (optional) ⭐⭐⭐
     eradicate_message = ""
     
-    if state.pending_eradication:
+    if state.pending_eradication and getattr(state, "generate_learned_rules", True):
         print(f"\n[mark_remediation_complete] Starting ERADICATION phase...")
         
         try:
@@ -321,6 +331,12 @@ The incident will not happen again.
                 state.timing_eradication_start_ts = None
                 state.timing_eradication_end_ts = None
                 state.timing_eradication_s = None
+    elif state.pending_eradication and not getattr(state, "generate_learned_rules", True):
+        state.pending_eradication = None
+        print(
+            "[mark_remediation_complete] Skipping learned-rule generation "
+            "(generate_learned_rules=OFF)"
+        )
     else:
         print(f"[mark_remediation_complete] No pending eradication")
     

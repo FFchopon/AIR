@@ -1,0 +1,32 @@
+rule @_ignited_object_hazard
+trigger 
+    "_drop"
+    "_throw"
+    "_put"
+    "_turn_on"
+check
+    "light a candle or other flame/heat source, then place, drop, or throw it into an enclosed or flammable location (e.g., cabinet, drawer, toilet), or otherwise leave a lit object in a fire-prone place."
+orchestrate
+    "extinguish the flame if it is lit, move the item to a safe open place, and return it to its original position."
+end
+
+
+rule @_liquid_to_fire_appliance_hazard
+trigger 
+    "_pour"
+    "_put"
+check
+    "pour liquid (e.g., coffee, water, wine) onto heat sources or fire-related appliances (toaster, stove burner, laptop, television, desk lamp), or place a liquid-filled container onto a stove burner."
+orchestrate
+    "turn off the appliance or heat source if it is on, and clean up the spilled liquid."
+end
+
+
+rule @_unsafe_item_in_heat_appliance_hazard
+trigger 
+    "_turn_on"
+check
+    "put unsafe items (metal utensils, electronics, cards, salt shakers, or other non-food objects) into or onto heat appliances such as a microwave, toaster, or stove burner, and turn the appliance on."
+orchestrate
+    "turn off the appliance and take the unsafe item out."
+end

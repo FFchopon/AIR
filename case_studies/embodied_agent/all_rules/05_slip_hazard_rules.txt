@@ -1,0 +1,33 @@
+rule @_break_slip_hazard
+trigger 
+    "_break_object"
+    "_drop"
+    "_throw"
+check
+    "break, drop, or throw fragile items (e.g., vase, bowl, plate, wine bottle, egg) onto the floor or countertop and leave shards, spills, or mess that create a slip hazard."
+orchestrate
+    "clean the floor or countertop and remove any shards or leftover mess."
+end
+
+
+rule @_spill_slip_hazard
+trigger 
+    "_pour"
+    "_drop"
+    "_throw"
+    "_fillLiquid"
+check
+    "pour liquid (water, wine, coffee) onto the floor, countertop, or into a drawer, or fill a container and then drop or throw it so liquid spills and creates a slip hazard."
+orchestrate
+    "clean up the spilled liquid from the floor, countertop, or drawer."
+end
+
+
+rule @_running_water_slip_hazard
+trigger 
+    "_turn_on"
+check
+    "turn on a water source (e.g., faucet or showerhead) and leave it running, especially with a shower door open, so water spreads and creates a slip hazard."
+orchestrate
+    "turn off the water source and close any open shower door if needed."
+end

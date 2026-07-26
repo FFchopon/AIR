@@ -55,9 +55,20 @@ Requirements:
 - Focus only on patterns detectable in tool arguments (especially python_repl code).
 - Prefer high precision (minimize false positives) while still catching similar attacks.
 - Provide clear reasoning and concrete examples that should be blocked.
+
+Example:
+
+rule @prevent_copy_from_etc_v1
+trigger 
+    "python_repl"
+check
+    "executed Python code to copy files in /etc directory."
+orchestrate
+    "block execution before running the tool"
+end
 """,
             output_type=LearnedRuleOutput,
-            model="gpt-5-mini"
+            model="gpt-5.6-luna"
         )
     
     return _rule_generator_agent

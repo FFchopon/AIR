@@ -15,6 +15,7 @@ import time
 import io
 import contextlib
 import shutil
+import argparse
 from pathlib import Path
 
 # Add ResponseSpec root directory to path for imports
@@ -189,21 +190,26 @@ def rewrite_code_for_sandbox(code: str) -> str:
     # ========================================================================
 
 
-async def interactive_demo() -> None:
+async def interactive_demo(generate_learned_rules: bool = True) -> None:
     """Run an interactive REPL-style demo for the ResponseSpec code agent.
 
     The demo runs entirely inside sandbox_root and uses ResponseSpec to
     monitor python_repl_impl tool calls and detect incidents. If a run
     ends with an unresolved incident, a dedicated remediation round is
-    forced; eradication (learning a pre-check rule) runs when the agent
-    calls mark_remediation_complete.
+    forced. When ``generate_learned_rules`` is True, eradication (learning
+    a pre-check rule) runs inside mark_remediation_complete; when False,
+    only the rule's orchestrate/remediation action is performed.
     """
 
     print("\n" + "=" * 80)
     print("ResponseSpec Code Agent - Interactive Demo (Sandboxed)")
     print("=" * 80)
     print("Type a natural language instruction describing what Python code")
-    print("you want to run. Type 'exit' to quit.\n")
+    print("you want to run. Type 'exit' to quit.")
+    print(
+        f"[Demo] generate_learned_rules="
+        f"{'ON' if generate_learned_rules else 'OFF'}\n"
+    )
 
     if not os.getenv("OPENAI_API_KEY"):
         print("⚠️  WARNING: OPENAI_API_KEY not set. Demo will not work without it.")
@@ -233,6 +239,7 @@ async def interactive_demo() -> None:
         model="gpt-5.6-luna",
         session=session,
         use_learned_rules=False,
+        generate_learned_rules=generate_learned_rules,
     )
 
     state.learned_rules_db_path = learned_rules_file
@@ -275,12 +282,16 @@ async def interactive_demo() -> None:
 
             # If post-check detected an incident but the agent ended without
             # completing remediation, force a dedicated remediation round.
-            # Eradication (learned rule) runs inside mark_remediation_complete.
+            # Learned-rule generation runs in mark_remediation_complete when ON.
             if state.incident_detected and not state.remediation_completed:
                 print("\n" + "=" * 80)
                 print("[Demo] Incident unresolved — forcing remediation round")
                 print(f"[Demo] Rule: {state.triggered_rule_id}")
                 print(f"[Demo] Required action: {state.remediation_action}")
+                print(
+                    "[Demo] Learned-rule generation: "
+                    f"{'ON' if state.generate_learned_rules else 'OFF'}"
+                )
                 print("=" * 80)
 
                 remediation_instruction = (
@@ -311,11 +322,17 @@ async def interactive_demo() -> None:
                         "incident is still unresolved "
                         f"(rule={state.triggered_rule_id})."
                     )
-                elif state.pending_eradication is None and not state.incident_detected:
-                    print(
-                        "\n[Demo] Remediation + eradication completed "
-                        f"(learned_rules={len(state.learned_rules)})."
-                    )
+                elif not state.incident_detected:
+                    if state.generate_learned_rules:
+                        print(
+                            "\n[Demo] Remediation + learned-rule generation "
+                            f"completed (learned_rules={len(state.learned_rules)})."
+                        )
+                    else:
+                        print(
+                            "\n[Demo] Remediation completed "
+                            "(learned-rule generation was OFF)."
+                        )
 
             if state.is_timing_enabled():
                 state.timing_task_end_ts = time.time()
@@ -353,10 +370,31 @@ async def interactive_demo() -> None:
 # Main
 # ============================================================================
 
-async def main():
+def parse_args(argv=None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Interactive ResponseSpec code-agent demo. "
+            "Use --no-generate-learned-rules to run orchestrate/remediation "
+            "only (skip writing learned_rules.txt)."
+        )
+    )
+    parser.add_argument(
+        "--generate-learned-rules",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "After remediation, generate a learned rule (default: on). "
+            "Pass --no-generate-learned-rules to disable."
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+async def main(argv=None):
     """Entry point for the interactive code agent demo."""
+    args = parse_args(argv)
     try:
-        await interactive_demo()
+        await interactive_demo(generate_learned_rules=args.generate_learned_rules)
     except KeyboardInterrupt:
         print("\nDemo interrupted by user")
 

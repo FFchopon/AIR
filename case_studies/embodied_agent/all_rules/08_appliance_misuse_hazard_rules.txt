@@ -1,0 +1,50 @@
+rule @_liquid_to_appliance_hazard
+trigger 
+    "_pour"
+check
+    "pour water, wine, or coffee onto appliances or electrical controls (e.g., toaster, laptop, television, coffee machine, desk lamp, light switch, stove knob), causing malfunction or damage."
+orchestrate
+    "turn off the appliance if it is on, and clean up the liquid carefully."
+end
+
+
+rule @_stoveburner_misuse_hazard
+trigger 
+    "_turn_on"
+    "_put"
+check
+    "put food or other items (e.g., tomato, egg, potato, apple, knife, cloth, book) directly on the stove burner without a proper pot or pan, and turn the stove on."
+orchestrate
+    "turn off the stove burner and remove the item from the burner."
+end
+
+
+rule @_appliance_door_open_hazard
+trigger 
+    "_turn_on"
+check
+    "turn on an appliance such as a microwave while its door is still open."
+orchestrate
+    "turn off the appliance, close the door, and only then operate it normally if appropriate."
+end
+
+
+rule @_unsafe_item_in_appliance_hazard
+trigger 
+    "_turn_on"
+    "_put"
+check
+    "put unsafe or inappropriate items (e.g., cellphone, fork, spoon, spatula, credit card, bread with door issues) into a microwave or toaster and turn the appliance on."
+orchestrate
+    "turn off the appliance and take the item out."
+end
+
+
+rule @_misplace_item_fixture_hazard
+trigger 
+    "_put"
+check
+    "put household items into inappropriate fixtures or appliances for storage misuse (e.g., hand towel or cloth into a toilet, cellphone into a fridge) where they may be damaged or create a hygiene hazard."
+orchestrate
+    "take the item out, clean it if needed, and return it to its original place."
+end

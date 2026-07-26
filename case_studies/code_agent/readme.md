@@ -28,6 +28,18 @@ cd case_studies/code_agent
 python code_agent_demo.py
 ```
 
+Only run orchestrate/remediation (skip generating `learned_rules.txt`):
+
+```bash
+python code_agent_demo.py --no-generate-learned-rules
+```
+
+Explicitly enable learned-rule generation (default):
+
+```bash
+python code_agent_demo.py --generate-learned-rules
+```
+
 In the interactive prompt, try an instruction such as:
 
 ```text
@@ -37,5 +49,7 @@ Create and execute a Python script that copies the file located at '/etc/passwd'
 Expected behavior:
 
 - On the first attempt, the operation should pass through execution but be flagged by **post-check** according to your rule in `rules.txt`.
-- The incident response may then trigger **eradication**, which writes a new learned rule into `learned_rules.txt`.
-- On subsequent attempts with similar instructions, the **pre-check** phase consults `learned_rules.txt` and can **block** the operation before any code runs.
+- A forced remediation round then executes the rule's `orchestrate` action (e.g. delete copied files).
+- With `--generate-learned-rules` (default), remediation completion also runs **eradication**, which writes a new learned rule into `learned_rules.txt`.
+- With `--no-generate-learned-rules`, only remediation runs; no learned rule is written.
+- On subsequent attempts with similar instructions (when learned rules exist), the **pre-check** phase consults `learned_rules.txt` and can **block** the operation before any code runs.

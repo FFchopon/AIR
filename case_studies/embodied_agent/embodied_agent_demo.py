@@ -146,7 +146,7 @@ async def interactive_demo() -> None:
                 instruction,
                 context=state,
                 session=session,
-                max_turns=10,
+                max_turns=20,
             )
 
             print("=" * 80)
